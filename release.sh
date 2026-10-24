@@ -1,17 +1,17 @@
 #!/bin/zsh
-# Builds, notarizes and staples VoiceControl.app, then zips it for sharing.
+# Builds, notarizes and staples MacControl.app, then zips it for sharing.
 # One-time setup (asks for an app-specific password from appleid.apple.com):
-#   xcrun notarytool store-credentials voicecontrol-notary --apple-id YOUR_APPLE_ID --team-id YOUR_TEAM_ID
+#   xcrun notarytool store-credentials maccontrol-notary --apple-id YOUR_APPLE_ID --team-id YOUR_TEAM_ID
 set -e
 cd "$(dirname "$0")"
-PROFILE=${NOTARY_PROFILE:-voicecontrol-notary}
+PROFILE=${NOTARY_PROFILE:-maccontrol-notary}
 ./build.sh
-codesign --verify --strict --verbose=2 VoiceControl.app
-ditto -c -k --keepParent VoiceControl.app VoiceControl-notarize.zip
-xcrun notarytool submit VoiceControl-notarize.zip --keychain-profile "$PROFILE" --wait
-xcrun stapler staple VoiceControl.app
-spctl --assess --type execute --verbose VoiceControl.app
-VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" VoiceControl.app/Contents/Info.plist)
-ditto -c -k --keepParent VoiceControl.app "VoiceControl-$VERSION.zip"
-rm VoiceControl-notarize.zip
-echo "Notarized: $(pwd)/VoiceControl-$VERSION.zip"
+codesign --verify --strict --verbose=2 MacControl.app
+ditto -c -k --keepParent MacControl.app MacControl-notarize.zip
+xcrun notarytool submit MacControl-notarize.zip --keychain-profile "$PROFILE" --wait
+xcrun stapler staple MacControl.app
+spctl --assess --type execute --verbose MacControl.app
+VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" MacControl.app/Contents/Info.plist)
+ditto -c -k --keepParent MacControl.app "MacControl-$VERSION.zip"
+rm MacControl-notarize.zip
+echo "Notarized: $(pwd)/MacControl-$VERSION.zip"

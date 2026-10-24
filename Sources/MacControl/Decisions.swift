@@ -107,7 +107,7 @@ final class DecisionClient {
         ]
         let body: [String: Any] = [
             "model": "gpt-6-luna",
-            "prompt_cache_key": "voicecontrol",
+            "prompt_cache_key": "maccontrol",
             "input": inputJSON,
             "questions": (1...max(1, steps)).map { i -> [String: Any] in
                 ["type": "choice", "name": "step\(i)", "choices": choiceJSON,
@@ -115,7 +115,7 @@ final class DecisionClient {
             },
         ]
         r.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        try? r.httpBody?.write(to: logURL.deletingLastPathComponent().appendingPathComponent("VoiceControl-last-request.json"))
+        try? r.httpBody?.write(to: logURL.deletingLastPathComponent().appendingPathComponent("MacControl-last-request.json"))
         let start = DispatchTime.now()
         session.dataTask(with: r) { data, resp, err in
             let ms = Int((DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000)

@@ -77,7 +77,7 @@ final class Controller: NSObject, NSApplicationDelegate {
             SelfTest(controller: self).run(CommandLine.arguments[i + 1])
             return
         }
-        // Test hook: `VoiceControl --perform system:volume=50` runs one action without speech or the API.
+        // Test hook: `MacControl --perform system:volume=50` runs one action without speech or the API.
         if let i = CommandLine.arguments.firstIndex(of: "--perform"), i + 1 < CommandLine.arguments.count {
             if let h = CommandLine.arguments.firstIndex(of: "--heard"), h + 1 < CommandLine.arguments.count { lastHeard = CommandLine.arguments[h + 1] }
             perform(CommandLine.arguments[i + 1])
@@ -101,7 +101,7 @@ final class Controller: NSObject, NSApplicationDelegate {
 
     func buildMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Voice Control")
+        statusItem.button?.image = NSImage(systemSymbolName: "mic", accessibilityDescription: "Mac Control")
         statusItem.button?.imagePosition = .imageLeading
         statusItem.button?.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
         let menu = NSMenu()
@@ -119,7 +119,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Rescan Apps and Shortcuts", action: #selector(rescan), keyEquivalent: "")
         menu.addItem(withTitle: "Open Log", action: #selector(openLog), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Voice Control", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit Mac Control", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.items.forEach { if $0.action != nil && $0.action != #selector(NSApplication.terminate(_:)) { $0.target = self } }
         statusItem.menu = menu
         sttItem.title = listener.parakeet.status
@@ -164,7 +164,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     @objc func askBalance() {
         let alert = NSAlert()
         alert.messageText = "OpenAI credit balance"
-        alert.informativeText = "Enter the balance shown on your OpenAI billing page. Voice Control subtracts what each command costs."
+        alert.informativeText = "Enter the balance shown on your OpenAI billing page. Mac Control subtracts what each command costs."
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 200, height: 24))
         field.placeholderString = "e.g. 10.00"
         if let b = credits.remaining { field.stringValue = String(format: "%.2f", b) }

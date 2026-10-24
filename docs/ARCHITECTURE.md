@@ -26,7 +26,7 @@ Everything that can be prepared while you're still talking is: the transcript is
 
 ## Source map
 
-`Sources/VoiceControl/`
+`Sources/MacControl/`
 
 | File | Responsibility |
 |---|---|
@@ -77,7 +77,7 @@ Every action is a string value, used as the option value sent to the model and d
 ```json
 {
   "model": "gpt-6-luna",
-  "prompt_cache_key": "voicecontrol",
+  "prompt_cache_key": "maccontrol",
   "input": [
     {"role": "developer", "content": [{"type": "input_text", "text": "Actions available on this Mac (value — meaning):\nopen:Notes — Open or switch to Notes\n…"}]},
     {"role": "user", "content": [{"type": "input_text", "text": "User said: \"open notes\"\nFrontmost app: Finder"}]}

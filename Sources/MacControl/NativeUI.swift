@@ -10,7 +10,7 @@ struct UIAction {
 
 let maxMenuItems = 250
 let maxWindowControls = 80
-let uiQueue = DispatchQueue(label: "voicecontrol.ui-scan")
+let uiQueue = DispatchQueue(label: "maccontrol.ui-scan")
 
 func axString(_ el: AXUIElement, _ name: String) -> String? {
     (axAttr(el, name) as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty

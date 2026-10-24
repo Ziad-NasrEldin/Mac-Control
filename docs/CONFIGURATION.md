@@ -71,7 +71,7 @@ The last 500 commands with what was heard, what ran, confidence, speech and deci
 
 OpenAI doesn't let project API keys read the remaining balance, so the menu bar shows an **estimate**: the balance you enter (**Set Credit Balance…**) minus the cost of each command, computed from the token usage the API returns. When OpenAI reports that credits are exhausted, it shows **$0** in red. **Open OpenAI Billing** opens the real balance.
 
-Prices used: $0.10 per 1M uncached input tokens, output free (per OpenAI's Decisions docs), and an assumed $0.01 per 1M cached tokens (the cache-read rate isn't published). Override them with `defaults write local.voicecontrol priceInput -float …` / `priceCached`.
+Prices used: $0.10 per 1M uncached input tokens, output free (per OpenAI's Decisions docs), and an assumed $0.01 per 1M cached tokens (the cache-read rate isn't published). Override them with `defaults write io.github.ziadnasreldin.maccontrol priceInput -float …` / `priceCached`.
 
 ## Local Decider fallback
 
@@ -84,22 +84,22 @@ Prices used: $0.10 per 1M uncached input tokens, output free (per OpenAI's Decis
 
 ## The OpenAI key
 
-Stored in the macOS Keychain (service `local.voicecontrol`, account `openai-api-key`). The `OPENAI_API_KEY` environment variable overrides it. A key in the legacy plain-text file `~/.config/voicecontrol/openai_key` is moved into the Keychain on launch and the file deleted.
+Stored in the macOS Keychain (service `io.github.ziadnasreldin.maccontrol`, account `openai-api-key`). The `OPENAI_API_KEY` environment variable overrides it. A key in the legacy plain-text file `~/.config/voicecontrol/openai_key` is moved into the Keychain on launch and the file deleted.
 
 ## Files on disk
 
 | Path | What |
 |---|---|
-| `~/Library/Logs/VoiceControl.log` | Activity log (menu → **Open Log**) |
-| `~/Library/Logs/VoiceControl-last-request.json` | The most recent Decisions request, for debugging |
-| `~/Library/Application Support/VoiceControl/history.json` | Command history |
-| `~/Library/Application Support/VoiceControl/macros.json` | Your macros |
+| `~/Library/Logs/MacControl.log` | Activity log (menu → **Open Log**) |
+| `~/Library/Logs/MacControl-last-request.json` | The most recent Decisions request, for debugging |
+| `~/Library/Application Support/MacControl/history.json` | Command history |
+| `~/Library/Application Support/MacControl/macros.json` | Your macros |
 | `~/Library/Application Support/FluidAudio/` | Parakeet speech models (~450 MB each) |
-| `~/Library/Preferences/local.voicecontrol.plist` | Settings and credit counter |
+| `~/Library/Preferences/io.github.ziadnasreldin.maccontrol.plist` | Settings and credit counter |
 
 ## All preference keys
 
-`defaults read local.voicecontrol` shows them:
+`defaults read io.github.ziadnasreldin.maccontrol` shows them:
 
 | Key | Type | Default |
 |---|---|---|

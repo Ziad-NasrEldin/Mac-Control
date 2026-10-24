@@ -71,15 +71,18 @@ final class Prefs: ObservableObject {
 // MARK: - Keychain
 
 enum Keychain {
-    static let service = "local.voicecontrol"
+    static let service = "io.github.ziadnasreldin.maccontrol"
     static let account = "openai-api-key"
 
-    private static var query: [String: Any] {
+    /// Where the app stored the key when it was called Voice Control.
+    static let legacyService = "local.voicecontrol"
+
+    private static func query(_ service: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
     }
 
-    static func read() -> String? {
-        var q = query
+    static func read(service: String = service) -> String? {
+        var q = query(service)
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
@@ -90,15 +93,15 @@ enum Keychain {
     @discardableResult
     static func write(_ key: String) -> Bool {
         let data = Data(key.utf8)
-        let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        let status = SecItemUpdate(query(service) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecSuccess { return true }
-        var add = query
+        var add = query(service)
         add[kSecValueData as String] = data
         add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
 
-    static func delete() { SecItemDelete(query as CFDictionary) }
+    static func delete(service: String = service) { SecItemDelete(query(service) as CFDictionary) }
 }
 
 // MARK: - Global key catcher

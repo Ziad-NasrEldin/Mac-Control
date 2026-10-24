@@ -32,7 +32,7 @@ final class Store: ObservableObject {
     let maxHistory = 500
 
     let dir: URL = {
-        let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("VoiceControl")
+        let d = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MacControl")
         try? FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
         return d
     }()

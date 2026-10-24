@@ -35,7 +35,7 @@ final class SettingsWindow {
             let root = SettingsView(router: router, setup: setup, prefs: Prefs.shared, store: Store.shared)
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 560),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            w.title = "Voice Control"
+            w.title = "Mac Control"
             w.contentView = NSHostingView(rootView: root)
             w.isReleasedWhenClosed = false
             w.center()
@@ -163,7 +163,7 @@ struct SetupView: View {
     @ObservedObject var setup: SetupModel
     var body: some View {
         Form {
-            Section("Everything Voice Control needs") {
+            Section("Everything Mac Control needs") {
                 ForEach(setup.checks) { c in
                     HStack(spacing: 10) {
                         Image(systemName: c.ok == true ? "checkmark.circle.fill" : (c.ok == false ? "xmark.circle.fill" : "circle.dotted"))

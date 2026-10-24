@@ -4,7 +4,7 @@ Start with **Settings → Setup** (every requirement with its status) and **Open
 
 ## Nothing happens when I hold the hotkey
 
-- Check **Accessibility** in Setup. If it says *not allowed* although the switch in System Settings is on, the entry belongs to an older build: select **Voice Control** in Privacy & Security → Accessibility, remove it with **–**, add `/Applications/Voice Control.app` with **+**, and relaunch.
+- Check **Accessibility** in Setup. If it says *not allowed* although the switch in System Settings is on, the entry belongs to an older build: select **Mac Control** in Privacy & Security → Accessibility, remove it with **–**, add `/Applications/Mac Control.app` with **+**, and relaunch.
 - Make sure you're holding the **right** Option key and the hotkey chosen in Settings → General.
 
 ## "Didn't catch that"
@@ -65,4 +65,16 @@ The build isn't signed with a stable identity. Build with a Developer ID certifi
 
 ## A Keychain prompt appears
 
-"Voice Control wants to use your confidential information…" appears when the app's signature changed since the key was saved. Click **Always Allow**, or re-enter the key in Setup.
+"Mac Control wants to use your confidential information…" appears when the app's signature changed since the key was saved. Click **Always Allow**, or re-enter the key in Setup.
+
+## Upgrading from "Voice Control"
+
+Earlier builds were called **Voice Control** (bundle id `local.voicecontrol`), the same name as Apple's built-in accessibility feature. On its first launch, Mac Control moves over your settings and credit counter, your history and macros (`~/Library/Application Support/VoiceControl` → `MacControl`) and your API key (Keychain), then removes the old copies.
+
+macOS treats the renamed app as a new app, so grant these once more:
+
+1. **Accessibility**: add `/Applications/Mac Control.app` in Privacy & Security → Accessibility (the list may call it Device Control and Data Access) and switch it on.
+2. **Microphone**: click **Allow** when asked.
+3. **Browsers**: click **OK** the first time it controls Safari or Chrome.
+
+You can then remove the old **Voice Control** entries from those lists, and delete `/Applications/Voice Control.app` if it's still there.

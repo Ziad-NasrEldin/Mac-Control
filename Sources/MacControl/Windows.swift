@@ -83,7 +83,7 @@ func pressWindowMenuItem(_ app: NSRunningApplication, titles: Set<String>) -> Bo
 }
 
 func performWindow(_ cmd: String, app: NSRunningApplication?, fail: (String) -> Void) {
-    guard AXIsProcessTrusted() else { fail("Accessibility permission needed — re-add Voice Control in Settings"); return }
+    guard AXIsProcessTrusted() else { fail("Accessibility permission needed — re-add Mac Control in Settings"); return }
     guard let app, let w = focusedWindow(of: app) else { fail("No window to act on"); return }
     switch cmd {
     case "minimize":

@@ -37,7 +37,7 @@ func runJS(_ js: String, app: NSRunningApplication, kind: BrowserKind) -> String
     return result?.stringValue
 }
 
-let scriptQueue = DispatchQueue(label: "voicecontrol.applescript")
+let scriptQueue = DispatchQueue(label: "maccontrol.applescript")
 
 struct BrowserTab { let window: Int; let index: Int; let title: String }
 let maxTabs = 60

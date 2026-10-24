@@ -38,9 +38,9 @@ A small overlay shows what it heard, what it picked, how confident it was, and h
 ```bash
 git clone https://github.com/Ziad-NasrEldin/Mac-Control.git
 cd Mac-Control
-./build.sh                                           # builds and signs VoiceControl.app
-ditto VoiceControl.app "/Applications/Voice Control.app"
-open "/Applications/Voice Control.app"
+./build.sh                                           # builds and signs MacControl.app
+ditto MacControl.app "/Applications/Mac Control.app"
+open "/Applications/Mac Control.app"
 ```
 
 On first launch the **Setup** window walks you through:
@@ -51,7 +51,7 @@ On first launch the **Setup** window walks you through:
 4. **Speech model** — Parakeet downloads once (~450 MB) and then loads in under a second.
 5. **Browsers** — the first time you switch tabs or click a link, macOS asks whether Mac Control may control your browser.
 
-> The app installs as **Voice Control.app** (bundle id `local.voicecontrol`). Its icon in the menu bar is a microphone with your remaining credit next to it.
+> The app installs as **Mac Control.app** (bundle id `io.github.ziadnasreldin.maccontrol`). Its menu-bar icon is a microphone with your remaining credit next to it. Upgrading from the earlier "Mac Control" build? Your settings, history, macros and API key move over automatically on first launch — see [Troubleshooting](docs/TROUBLESHOOTING.md#upgrading-from-voice-control).
 
 ## Using it
 

@@ -7,20 +7,20 @@
 ```
 
 - Runs `swift build -c release --arch arm64` (first build also fetches FluidAudio, ~90 MB).
-- Assembles `VoiceControl.app` (Info.plist, FluidAudio's resource bundle) and signs it — see [Signing](#signing).
-- Output: `./VoiceControl.app`. Install with `ditto VoiceControl.app "/Applications/Voice Control.app"`.
+- Assembles `MacControl.app` (Info.plist, FluidAudio's resource bundle) and signs it — see [Signing](#signing).
+- Output: `./MacControl.app`. Install with `ditto MacControl.app "/Applications/Mac Control.app"`.
 
-Logs go to `~/Library/Logs/VoiceControl.log`. The last Decisions request is saved to `~/Library/Logs/VoiceControl-last-request.json`.
+Logs go to `~/Library/Logs/MacControl.log`. The last Decisions request is saved to `~/Library/Logs/MacControl-last-request.json`.
 
 ### Handy launch flags
 
 ```bash
 # Run one action without speech or the API, then quit
-open -n "/Applications/Voice Control.app" --args --perform window:nextdisplay
-open -n "/Applications/Voice Control.app" --args --perform browser:search --heard "search for swift concurrency"
+open -n "/Applications/Mac Control.app" --args --perform window:nextdisplay
+open -n "/Applications/Mac Control.app" --args --perform browser:search --heard "search for swift concurrency"
 
 # Run a self-test suite (see below)
-open -n "/Applications/Voice Control.app" --args --selftest native
+open -n "/Applications/Mac Control.app" --args --selftest native
 ```
 
 ## Self-tests
@@ -28,7 +28,7 @@ open -n "/Applications/Voice Control.app" --args --selftest native
 The tests drive the **installed app** against real apps, real audio and the real APIs, and log `TEST PASS` / `TEST FAIL` lines.
 
 ```bash
-./selftest.sh native shortcuts fastpath   # installs ./VoiceControl.app, runs the suites in order, relaunches the app
+./selftest.sh native shortcuts fastpath   # installs ./MacControl.app, runs the suites in order, relaunches the app
 ```
 
 | Suite | Checks | Touches |
@@ -55,24 +55,24 @@ The full run takes a few minutes and costs well under a cent in API usage. Don't
 
 `build.sh` picks the first available identity:
 
-1. **Developer ID Application** — hardened runtime, secure timestamp, `VoiceControl.entitlements` (audio input and Apple Events). Accessibility, Microphone, Automation and Keychain grants survive rebuilds because macOS matches your Team ID.
+1. **Developer ID Application** — hardened runtime, secure timestamp, `MacControl.entitlements` (audio input and Apple Events). Accessibility, Microphone, Automation and Keychain grants survive rebuilds because macOS matches your Team ID.
 2. **"Voice Control Local Signing"** — a self-signed certificate in your login keychain. Grants survive rebuilds, but Keychain items may prompt.
 3. **Ad-hoc** — works, but macOS forgets every permission after each build.
 
-After switching identities, remove Voice Control from Privacy & Security → Accessibility and add it again once, because the old entry belongs to the old signature.
+After switching identities, remove Mac Control from Privacy & Security → Accessibility and add it again once, because the old entry belongs to the old signature.
 
 ## Releasing (notarization)
 
 Only needed to give the app to other people. Store your notarization credentials once (this asks for an app-specific password from appleid.apple.com):
 
 ```bash
-xcrun notarytool store-credentials voicecontrol-notary --apple-id YOUR_APPLE_ID --team-id YOUR_TEAM_ID
+xcrun notarytool store-credentials maccontrol-notary --apple-id YOUR_APPLE_ID --team-id YOUR_TEAM_ID
 ```
 
 Then:
 
 ```bash
-./release.sh    # builds, notarizes, staples, verifies with Gatekeeper, writes VoiceControl-<version>.zip
+./release.sh    # builds, notarizes, staples, verifies with Gatekeeper, writes MacControl-<version>.zip
 ```
 
 Set `NOTARY_PROFILE` to use a different credentials profile. The version comes from `CFBundleShortVersionString` in `build.sh`.
@@ -85,7 +85,7 @@ Set `NOTARY_PROFILE` to use a different credentials profile. The version comes f
 4. **Make it instant** (optional): add common exact phrasings in `FastPath.phrases`.
 5. **Make it undoable** (optional): return an `UndoStep` from `captureUndo` in `Undo.swift`.
 6. **Mark it risky** (optional): add it to `Controller.isDestructive`.
-7. **Test it**: `open -n "/Applications/Voice Control.app" --args --perform system:nightshift`, then add a case to a self-test suite.
+7. **Test it**: `open -n "/Applications/Mac Control.app" --args --perform system:nightshift`, then add a case to a self-test suite.
 
 Stable options belong in the cached catalog (`inCatalog: true`). Anything that changes from moment to moment should be a dynamic option with its description inline.
 
@@ -93,8 +93,8 @@ Stable options belong in the cached catalog (`inCatalog: true`). Anything that c
 
 ```
 Package.swift                 SwiftPM manifest (FluidAudio dependency, Swift 5 language mode)
-Sources/VoiceControl/         App sources — see docs/ARCHITECTURE.md
-VoiceControl.entitlements     Hardened-runtime entitlements
+Sources/MacControl/         App sources — see docs/ARCHITECTURE.md
+MacControl.entitlements     Hardened-runtime entitlements
 build.sh                      Build, bundle, sign
 selftest.sh                   Install and run self-test suites
 release.sh                    Notarize and package

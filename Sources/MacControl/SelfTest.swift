@@ -1,4 +1,4 @@
-// `VoiceControl --selftest <name>` drives real features against real apps and the API, logging TEST PASS/FAIL lines.
+// `MacControl --selftest <name>` drives real features against real apps and the API, logging TEST PASS/FAIL lines.
 import AppKit
 import AVFoundation
 
@@ -138,7 +138,7 @@ final class SelfTest {
         let list = listShortcuts()
         check(!list.isEmpty, "listed \(list.count) shortcuts")
         c.shortcuts = list
-        let err = await Task.detached { runShortcut("Voice Control self-test missing shortcut") }.value
+        let err = await Task.detached { runShortcut("Mac Control self-test missing shortcut") }.value
         check(err != nil, "running a missing shortcut reports an error: \(err ?? "none")")
         c.targetApp = NSWorkspace.shared.frontmostApplication
         c.menuItems = []; c.windowControls = []
@@ -346,9 +346,9 @@ final class SelfTest {
         check(NSApp.isActive && w.isKeyWindow, "test window has keyboard focus")
         await sleep(0.3)
         c.targetApp = NSRunningApplication.current
-        c.type("Hello from Voice Control, café ✓")
+        c.type("Hello from Mac Control, café ✓")
         await sleep(1.2)
-        let expected = "Hello from Voice Control, café ✓ "
+        let expected = "Hello from Mac Control, café ✓ "
         let foreign = field.stringValue.hasSuffix(expected) ? String(field.stringValue.dropLast(expected.count)) : ""
         check(field.stringValue.hasSuffix(expected), "typed text arrived intact: \"\(field.stringValue)\"" + (foreign.isEmpty ? "" : " (\"\(foreign)\" came from live keyboard input during the test)"))
         w.close()

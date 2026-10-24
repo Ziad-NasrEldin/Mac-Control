@@ -36,7 +36,7 @@ func loadAPIKey() -> String? {
 
 let logURL: URL = {
     let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs")
-    return dir.appendingPathComponent("VoiceControl.log")
+    return dir.appendingPathComponent("MacControl.log")
 }()
 func log(_ s: String) {
     let line = "\(Date()) \(s)\n"
