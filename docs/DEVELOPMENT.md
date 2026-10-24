@@ -98,5 +98,6 @@ MacControl.entitlements     Hardened-runtime entitlements
 build.sh                      Build, bundle, sign
 selftest.sh                   Install and run self-test suites
 release.sh                    Notarize and package
+Resources/AppIcon.svg         App icon source (⌘ with a voice waveform); `swift scripts/make-icon.swift` renders AppIcon.icns and docs/images/logo.png
 docs/                         Documentation
 ```

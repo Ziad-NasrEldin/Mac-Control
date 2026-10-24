@@ -11,6 +11,7 @@ cp "$BIN/MacControl" $APP/Contents/MacOS/MacControl
 # Dynamic frameworks and resource bundles pulled in by FluidAudio.
 for f in "$BIN"/*.framework(N); do cp -R "$f" $APP/Contents/Frameworks/; done
 for b in "$BIN"/*.bundle(N); do cp -R "$b" $APP/Contents/Resources/; done
+cp Resources/AppIcon.icns $APP/Contents/Resources/
 install_name_tool -add_rpath @executable_path/../Frameworks $APP/Contents/MacOS/MacControl 2>/dev/null || true
 cat > $APP/Contents/Info.plist <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -19,6 +20,7 @@ cat > $APP/Contents/Info.plist <<'EOF'
   <key>CFBundleIdentifier</key><string>io.github.ziadnasreldin.maccontrol</string>
   <key>CFBundleName</key><string>Mac Control</string>
   <key>CFBundleDisplayName</key><string>Mac Control</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundleExecutable</key><string>MacControl</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>2.1</string>

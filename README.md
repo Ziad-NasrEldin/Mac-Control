@@ -1,4 +1,6 @@
-# Mac Control
+<p align="center"><img src="docs/images/logo.png" width="160" alt="Mac Control logo"></p>
+
+<h1 align="center">Mac Control</h1>
 
 **Hold a key, say what you want, and your Mac does it.**
 
