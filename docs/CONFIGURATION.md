@@ -34,6 +34,7 @@ Add **⇧ Shift** while holding to switch to typing mode.
 | Setting | Default | Notes |
 |---|---|---|
 | Model | Parakeet v2 — English | v3 understands 25 European languages; switching downloads it once |
+| Act while I'm still talking | On | Runs finished clauses ("open Notes and…") before you let go; see [Commands → Acting while you talk](COMMANDS.md#acting-while-you-talk) |
 | Keep mic ready | Off | Keeps the mic open and buffers the last 500 ms, so the first word is never clipped (mic start 0 ms instead of ~170 ms). The orange mic indicator stays on. |
 
 ### Safety
@@ -111,6 +112,7 @@ Stored in the macOS Keychain (service `io.github.ziadnasreldin.maccontrol`, acco
 | `overlayPosition` | `top` · `bottom` | `top` |
 | `sounds` | bool | true |
 | `keepMicReady` | bool | false |
+| `actWhileTalking` | bool | true |
 | `localFallback` | bool | true |
 | `localDeciderURL` | URL | `http://127.0.0.1:8080` |
 | `creditBalance`, `creditSpent`, `creditCalls`, `creditExhausted` | — | credit counter state |

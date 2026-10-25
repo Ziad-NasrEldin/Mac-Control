@@ -204,6 +204,7 @@ struct GeneralView: View {
                     ForEach(SpeechModel.allCases) { Text($0.title).tag($0) }
                 }
                 Toggle("Keep mic ready (no clipped first word; mic indicator stays on)", isOn: $prefs.keepMicReady)
+                Toggle("Act while I'm still talking (“open Notes and …” opens Notes right away)", isOn: $prefs.actWhileTalking)
             }
             Section("Safety") {
                 LabeledContent("Show top 3 below") {

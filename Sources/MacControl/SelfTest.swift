@@ -27,6 +27,8 @@ final class SelfTest {
             case "settings": await settings()
             case "limit": await limit()
             case "fallback": await fallback()
+            case "utterance": utterance()
+            case "stream": await streamDemo()
             default: check(false, "unknown test \(name)")
             }
             log("TEST end \(name): \(passed) passed, \(failed) failed")
@@ -447,4 +449,100 @@ final class SelfTest {
         let ok5 = await waitFor(5) { SettingsWindow.shared.setup.checks.contains { $0.id == "local" && $0.ok == true } }
         check(ok5, "Setup shows the local Decider as ready")
     }
+
+    func utterance() {
+        let cases: [(String, Bool, [String], String?, Int)] = [
+            ("open the notes app", false, ["open the notes app"], nil, 0),
+            ("Open the notes app and", false, ["Open the notes app"], nil, 1),
+            ("Open the notes app and create a new", false, ["Open the notes app", "create a new"], nil, 1),
+            ("Open the notes app and create a new note that says hello, this is a test.", true,
+             ["Open the notes app", "create a new note"], "Hello, this is a test.", 2),
+            ("Open the notes app and create a new note that says hello", false, ["Open the notes app", "create a new note"], "Hello", 2),
+            ("type hello world", true, [], "Hello world", 0),
+            ("open Safari and search for salt and pepper", true, ["open Safari", "search for salt and pepper"], nil, 2),
+            ("open Safari and search for salt", false, ["open Safari", "search for salt"], nil, 1),
+            ("Open Notes. Create a new note.", true, ["Open Notes", "Create a new note"], nil, 2),
+            ("volume 40", false, ["volume 40"], nil, 0),
+        ]
+        for (said, final, clauses, text, complete) in cases {
+            let u = Utterance.parse(said, final: final)
+            check(u.clauses == clauses && u.text == text && u.complete == complete,
+                  "\(final ? "final" : "partial") \"\(said)\" → \(u.clauses) text=\(u.text ?? "-") ready=\(u.complete)")
+        }
+        check(Utterance.looksLikeCommand("create a new note") && !Utterance.looksLikeCommand("the weather today"), "command detection")
+    }
+
+    func focusedText(_ app: NSRunningApplication) -> String {
+        let a = AXUIElementCreateApplication(app.processIdentifier)
+        guard let f = axAttr(a, kAXFocusedUIElementAttribute) else { return "" }
+        return (axAttr(f as! AXUIElement, kAXValueAttribute) as? String) ?? ""
+    }
+
+    func streamDemo() async {
+        check(await waitParakeet(), "Parakeet loaded")
+        // Live transcription of a growing recording yields the beginning of the sentence.
+        let full = synthesize("Open text edit and create a new document")
+        let (early, earlyMs) = await withCheckedContinuation { cont in c.listener.transcribe(samples: Array(full.prefix(full.count * 45 / 100))) { cont.resume(returning: ($0, $1)) } }
+        check(FastPath.normalize(early).hasPrefix("open text"), "live transcript of the first half: \"\(early)\" in \(earlyMs) ms")
+
+        c.rescan(); await sleep(1.5)
+        let wasRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.TextEdit" }
+        Prefs.shared.actWhileTalking = true
+        c.targetApp = NSWorkspace.shared.frontmostApplication; c.targetBrowser = nil
+        c.menuItems = []; c.windowControls = []
+        c.stream = StreamState()
+        c.stream.intended = c.targetApp
+        c.holding = true; c.typingMode = false
+        // Partial transcripts as they'd arrive while speaking, ~0.4 s apart.
+        let partials = ["Open", "Open text edit", "Open text edit and", "Open text edit and create a", "Open text edit and create a new document",
+                        "Open text edit and create a new document that says", "Open text edit and create a new document that says hello",
+                        "Open text edit and create a new document that says hello this is a test"]
+        var openedAt: Int?
+        for (i, p) in partials.enumerated() {
+            c.streamPartial(p)
+            await sleep(0.4)
+            if openedAt == nil, NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.TextEdit" { openedAt = i }
+        }
+        check(openedAt != nil && openedAt! < partials.count - 1,
+              "TextEdit came forward while still talking (after partial \((openedAt ?? -2) + 1) of \(partials.count): \"\(openedAt.map { partials[$0] } ?? "-")\")")
+        let earlyActions = c.stream.actions
+        log("TEST info ran before release: \(earlyActions.map(c.describe))")
+        // Let go.
+        c.holding = false
+        c.stream.releasedAt = Date()
+        c.finishUtterance("Open text edit and create a new document that says hello, this is a test.")
+        let edit = NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.TextEdit" }
+        let typed = await waitFor(20) { edit.map { self.focusedText($0).contains("Hello, this is a test.") } ?? false }
+        check(typed, "new document contains the dictated text: \"\(edit.map(focusedText) ?? "")\"")
+        check(c.stream.actions.contains { $0.hasPrefix("menu:") }, "\"create a new document\" ran a TextEdit menu command: \(c.stream.actions.map(c.describe))")
+        log("TEST info overlay: \(c.overlay.current.picked) | \(c.overlay.current.meta)")
+
+        // Focus theft: another app comes to the front before the dictated text is typed → nothing is typed.
+        c.stream = StreamState()
+        c.targetApp = edit; c.stream.intended = edit
+        c.holding = true
+        for p in ["Create a new document and", "Create a new document that says this must not be typed"] { c.streamPartial(p); await sleep(0.5) }
+        NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.finder" }?.activate()
+        await sleep(0.6)
+        c.holding = false
+        c.stream.releasedAt = Date()
+        c.finishUtterance("Create a new document that says this must not be typed.")
+        await sleep(3)
+        check(!c.stream.actions.contains { $0.hasPrefix("type:") } && c.stream.blockedBy != nil,
+              "focus stolen → nothing typed: \(c.stream.blockedBy ?? "not blocked!")")
+        edit?.activate(); await sleep(0.6)
+
+        // Clean up: close the test documents without saving.
+        if let edit {
+            for _ in 0..<3 {
+                guard let close = collectMenuItems(edit).first(where: { $0.label == "File › Close" }) else { break }
+                press(close.element)
+                await sleep(0.8)
+                if let dont = collectWindowControls(edit).first(where: { ["Delete", "Don’t Save", "Don't Save"].contains($0.label) }) { press(dont.element) }
+                await sleep(0.5)
+            }
+            if !wasRunning { edit.terminate() }
+        }
+    }
 }
+

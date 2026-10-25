@@ -16,12 +16,14 @@ A small overlay shows what it heard, what it picked, how confident it was, and h
 
 ## Highlights
 
+- **Acts while you're still talking** — say "open Notes and create a new note that says hello": Notes opens the moment you say "…and", the note is created, and your words are typed in.
 - **Whole-Mac control** — apps, windows, menus, buttons, browser tabs and links, system settings, media, Shortcuts.
 - **Fast** — on-device speech in ~50 ms; exact phrases ("open notes", "volume 40") skip the network entirely and run in microseconds; everything else is decided in ~0.3–0.8 s.
 - **Private by default** — your voice never leaves the Mac. Only the transcript and a list of possible actions are sent to the decision model.
 - **Safe** — risky actions (quit, lock, close window, Shortcuts) ask first when the model isn't sure; unclear commands show the top 3 to pick from; **"undo that"** reverses the last command.
 - **Works offline** — if OpenAI is down, out of credits or not configured, Perplexity's Decider running locally takes over.
 - **Chained commands** — "open Safari, make a new tab and set volume to 30".
+- **Dictated text inside commands** — "…that says", "…saying", "type …" types the rest into the app you're working in.
 - **Typing mode** — add ⇧ Shift to type what you say into any text field.
 - **Macros** — "work mode" → open Slack, Mail and Chrome.
 
@@ -74,6 +76,7 @@ volume 40                       next song                        dark mode
 go back                         go to the GitHub tab             search for flights to Cairo
 switch to scientific mode       press seven                      export as PDF
 make a QR code                  open Safari and make a new tab   lock screen
+open Notes and create a new note that says call mom at six
 ```
 
 The full list is in **[docs/COMMANDS.md](docs/COMMANDS.md)**.
@@ -97,7 +100,7 @@ flowchart LR
     Q --> A
 ```
 
-1. **While you hold the key** the mic records, a TLS connection to OpenAI is warmed up, and the front app's menus, window controls, browser tabs and page links are read in the background.
+1. **While you hold the key** the mic records and Parakeet transcribes live every ~0.35 s; each finished clause ("open Notes **and**…") is decided and run right away while you keep talking. Meanwhile a TLS connection to OpenAI is warmed up, and the front app's menus, window controls, browser tabs and page links are read in the background.
 2. **When you let go** Parakeet transcribes the audio locally (~50 ms).
 3. **Exact phrases** are matched locally and run immediately — no API call.
 4. **Everything else** goes to the decision model as one multiple-choice question: *which of these ~250 actions did the user mean?* The model returns a choice and a confidence.
@@ -131,7 +134,7 @@ More: **[docs/PRIVACY.md](docs/PRIVACY.md)**.
 
 ## Status
 
-All roadmap items except notarization and auto-updates are implemented and covered by 69 self-tests in 15 suites that drive real apps, real audio and the real APIs (`./selftest.sh <name>`).
+All roadmap items except notarization and auto-updates are implemented and covered by 86 self-test checks in 17 suites that drive real apps, real audio and the real APIs (`./selftest.sh <name>`).
 
 ## License
 

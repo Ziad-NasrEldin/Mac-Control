@@ -36,6 +36,14 @@ Setup shows *Parakeet: loading…* during the first download (~450 MB). If it sa
 - Settings → General → **Fallback** must be on, and the address must match Decider's port (default `http://127.0.0.1:8080`).
 - If Decider requires an API key (`DECIDER_API_KEY`), unset it: Mac Control doesn't send one.
 
+## "Stopped: … took focus" or "Didn't type"
+
+Another app came to the front in the middle of a command (games and launchers do this), so Mac Control stopped instead of acting on — or typing into — the wrong window. Bring the app back and say the rest again.
+
+## It acted before I finished
+
+That's **Act while I'm still talking**: finished clauses run as soon as they're heard. Say "undo that" if a step was wrong, or turn it off in Settings → General.
+
 ## It picked the wrong thing
 
 - Say **"undo that"**.

@@ -105,6 +105,11 @@ final class Listener {
 
     var onPartial: ((String) -> Void)?
     var onLevel: ((Float) -> Void)?
+    /// Live Parakeet transcript of everything said so far, delivered every ~0.35 s while the key is held.
+    var onStreamText: ((String) -> Void)?
+    private var streamTimer: Timer?
+    private var streamBusy = false
+    private var streamedSamples = 0
     var hints: [String] = []
     /// Why the last attempt produced no text, for the overlay.
     private(set) var lastProblem: String?
@@ -132,6 +137,7 @@ final class Listener {
         if usingParakeet && alwaysOn && engine.isRunning {
             liveLock.lock(); samples16k = ring; ring = []; active = true; liveLock.unlock()
             micStartMs = 0
+            startStreaming()
             return
         }
         if !usingParakeet {
@@ -140,6 +146,29 @@ final class Listener {
         }
         openMic(parakeetMode: usingParakeet, activate: true)
         if !usingParakeet { _ = startRecognition(onDevice: useOnDevice && recognizer.supportsOnDeviceRecognition) }
+        else { startStreaming() }
+    }
+
+    /// Re-transcribes the growing recording a few times a second (Parakeet takes ~50 ms for a short clip).
+    private func startStreaming() {
+        streamTimer?.invalidate()
+        streamBusy = false; streamedSamples = 0
+        let gen = generation
+        streamTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
+            guard let self, gen == self.generation, !self.streamBusy, self.onStreamText != nil else { return }
+            self.liveLock.lock(); let audio = self.samples16k; let isActive = self.active; self.liveLock.unlock()
+            // Wait for half a second of audio, then only re-run once there's a quarter second more.
+            guard isActive, audio.count >= 8_000, audio.count - self.streamedSamples >= 4_000 else { return }
+            self.streamBusy = true
+            self.streamedSamples = audio.count
+            self.parakeet.transcribe(audio) { [weak self] text, _ in
+                guard let self else { return }
+                self.streamBusy = false
+                self.liveLock.lock(); let stillHeld = self.active; self.liveLock.unlock()
+                guard gen == self.generation, stillHeld, !text.isEmpty else { return }
+                self.onStreamText?(text)
+            }
+        }
     }
 
     private func openMic(parakeetMode: Bool, activate: Bool) {
@@ -216,6 +245,7 @@ final class Listener {
 
     /// Stops listening; calls back with the final transcript (or the latest partial after a grace period).
     func stop(_ done: @escaping (String) -> Void) {
+        streamTimer?.invalidate(); streamTimer = nil
         finished = done
         liveLock.lock(); active = false; let audio = samples16k; samples16k = []; liveLock.unlock()
         if !(alwaysOn && usingParakeet) { stopEngine() }

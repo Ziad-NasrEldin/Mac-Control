@@ -47,6 +47,8 @@ The tests drive the **installed app** against real apps, real audio and the real
 | `macros` | A macro runs both steps and lands in history | Volume (restored) |
 | `typing` | Unicode typing into a focused text field | Shows a small window |
 | `settings` | Settings window, Setup checks, live preference changes | Shows Settings |
+| `utterance` | Clause splitting, dictated text, which clauses are finished, command detection | — |
+| `stream` | Live transcript of half a sentence; replica of the "open the notes app and create…" demo in TextEdit (opens before you finish, File › New, text typed); focus stolen → nothing typed | Opens TextEdit (test documents closed unsaved), briefly activates Finder |
 | `fallback` | Bad key / no key → local Decider; chained command; both down → error | Volume (restored); needs Decider.app running |
 
 The full run takes a few minutes and costs well under a cent in API usage. Don't type while `typing` runs, since it needs keyboard focus.

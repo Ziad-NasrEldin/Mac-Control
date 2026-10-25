@@ -14,7 +14,7 @@ func migrateFromVoiceControl() {
 
     if let old = UserDefaults(suiteName: legacyBundleID) {
         let keys = ["hotkey", "speechModel", "pickerThreshold", "confirmThreshold", "alwaysConfirm", "overlayPosition", "sounds",
-                    "keepMicReady", "localFallback", "localDeciderURL", "creditBalance", "creditSpent", "creditCalls",
+                    "keepMicReady", "actWhileTalking", "localFallback", "localDeciderURL", "creditBalance", "creditSpent", "creditCalls",
                     "creditExhausted", "priceInput", "priceCached"]
         for k in keys where d.object(forKey: k) == nil {
             if let v = old.persistentDomain(forName: legacyBundleID)?[k] { d.set(v, forKey: k); moved.append(k) }

@@ -86,6 +86,30 @@ Define your own phrases in **Settings → Macros**. Each step is an ordinary com
 
 A macro with one step is an alias. Saying the exact phrase runs it instantly; the model can also choose it for close paraphrases.
 
+## Acting while you talk
+
+With **Act while I'm still talking** on (the default), you don't have to finish the sentence before things happen. While you hold the key, the transcript updates every ~0.35 s; as soon as a clause is finished — followed by "and", "then", a comma or a full stop — it runs:
+
+> "**Open Notes and** create a new note that says call mom at six"
+>
+> Notes opens as you say "and" · a new note is created · "Call mom at six" is typed in when you let go
+
+- Only exact phrases and confident (≥60%), harmless steps run early. Risky or unclear ones wait until you let go, with the usual confirm and picker.
+- After a step opens or switches apps, the next clause is decided against **that** app's menus and buttons.
+- If another app grabs focus mid-command (a game, a notification), the remaining steps stop and nothing is typed: the overlay says which app took focus.
+- The overlay shows the live transcript with ✓ next to steps already done, and afterwards how long before you let go the first action ran.
+
+## Dictated text
+
+Anything after these words is typed, not interpreted, after the steps before it run:
+
+| Marker | Example |
+|---|---|
+| "that says", "which says", "saying", "with the text" | "create a new note **that says** buy milk" |
+| "type", "write", "dictate" (at the start or after "and"/"then") | "open TextEdit **and type** dear team" |
+
+The first letter is capitalized; punctuation comes from the speech model. Text is only typed into the app the command was aimed at. For dictation without any command, use [typing mode](#typing-mode).
+
 ## Chained commands
 
 Join commands with "and", "then" or a comma — up to three steps:

@@ -50,6 +50,8 @@ final class Controller: NSObject, NSApplicationDelegate {
 
     /// Reverses the last command's steps.
     var undoSteps: [UndoStep] = []
+    /// Clauses already run while the key was still held.
+    var stream = StreamState()
 
     enum Pending { case confirm([String], ExecContext), pick([String], ExecContext) }
     var pending: Pending?
@@ -66,6 +68,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         listener.parakeet.onStatus = { [weak self] s in self?.sttItem.title = s }
         listener.parakeet.onReady = { [weak self] in self?.listener.parakeetBecameReady() }
         listener.onLevel = { [weak self] l in self?.overlay.level(l) }
+        listener.onStreamText = { [weak self] t in self?.streamPartial(t) }
         listener.onPartial = { [weak self] t in
             guard let self, self.holding else { return }
             self.overlay.show(heard: t.isEmpty ? "Listening…" : t, picked: self.contextLine, color: .systemRed, listening: true)
@@ -214,12 +217,14 @@ final class Controller: NSObject, NSApplicationDelegate {
 
     func begin() {
         if !typingMode { client?.warmUp() }
+        stream = StreamState()
         Sounds.listen()
         if case .pick = pending {} else {
             targetApp = NSWorkspace.shared.frontmostApplication
             targetBrowser = targetApp?.bundleIdentifier.flatMap { browserBundleIDs[$0] }
             pageElements = []; pageTitle = ""; tabs = []; menuItems = []; windowControls = []
         }
+        stream.intended = targetApp
         showListening()
         listener.start()
         guard !typingMode, pending == nil, let app = targetApp, app.processIdentifier != getpid() else { return }
@@ -246,6 +251,7 @@ final class Controller: NSObject, NSApplicationDelegate {
 
     func end() {
         let typing = typingMode
+        stream.releasedAt = Date()
         listener.stop { [weak self] text in
             guard let self else { return }
             let heard = text.trimmingCharacters(in: .whitespaces)
@@ -255,6 +261,8 @@ final class Controller: NSObject, NSApplicationDelegate {
                 return
             }
             if typing { self.type(heard); return }
+            // Something already ran while talking: finish the rest of the sentence the same way.
+            if self.stream.done > 0 || self.stream.busy { self.finishUtterance(heard); return }
             self.handle(heard)
         }
     }
@@ -266,6 +274,8 @@ final class Controller: NSObject, NSApplicationDelegate {
             if let n = Controller.number(in: heard), n >= 1, n <= options.count { choosePick(n - 1); return }
             clearPending()
         }
+        // Dictated text ("… that says hello", "type …"): run the commands step by step, then type it.
+        if Utterance.parse(heard, final: true).text != nil { finishUtterance(heard); return }
         if let actions = FastPath.match(heard, apps: apps, macros: store.macros) {
             let ctx = ExecContext(heard: heard, source: "local", confidences: actions.map { _ in 1.0 },
                                   sttMs: listener.lastSttMs, decideMs: 0, tokens: 0)
@@ -393,6 +403,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         if value.hasPrefix("shortcut:") { return "Run the Shortcut \"\(value.dropFirst(9))\"" }
         if value.hasPrefix("macro:"), let i = Int(value.dropFirst(6)), i < store.macros.count { return "Macro \"\(store.macros[i].phrase)\"" }
         if value == "undo" { return "Undo the last command" }
+        if value.hasPrefix("type:") { return "Type “\(value.dropFirst(5))”" }
         return value
     }
 

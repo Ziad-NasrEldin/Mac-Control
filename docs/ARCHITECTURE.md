@@ -24,6 +24,12 @@ key down ──► mic on ──────────────────
 
 Everything that can be prepared while you're still talking is: the transcript is the only thing the decision has to wait for.
 
+### Acting while you talk
+
+While the key is held, `Listener` re-transcribes the growing recording every ~0.35 s (once at least 0.5 s exists and 0.25 s more has arrived; ~50 ms per pass). `Utterance.parse` splits each live transcript into clauses at "and", "then", commas and full stops; text after "that says / saying / type / write…" is dictated text, and a search swallows the rest of the sentence. Every clause except the last one still being spoken is *finished*.
+
+Finished clauses run one at a time: exact phrase → instant, otherwise a single-step decision. They only run early when they're confident (≥60%) and not risky; otherwise early execution stops and the rest waits for release. After each step the app it targeted (the *intended app*: the front app at key press, then whatever an `open:` or browser step brought forward) must be in front, or the command stops. The front app's menus and controls are then re-read so the next clause is decided against the right app. On release, the remaining clauses of the final transcript run the same way, then the dictated text is typed — only into the intended app.
+
 ## Source map
 
 `Sources/MacControl/`
@@ -33,6 +39,7 @@ Everything that can be prepared while you're still talking is: the transcript is
 | `main.swift` | Bootstraps `NSApplication` as an accessory (menu-bar only) app |
 | `Controller.swift` | The app delegate: menu bar, hotkey, routing (picker → exact phrase → API → fallback), building options, confirm/pick flow, running chained steps, history |
 | `Speech.swift` | `ParakeetEngine` (model download/load/transcribe) and `Listener` (AVAudioEngine capture, 16 kHz resampling, pre-roll ring buffer, levels, Apple Speech fallback) |
+| `Streaming.swift` | Acting while you talk: `Utterance` (clauses, dictated text, which clauses are finished), running finished clauses early, the intended-app focus guard, finishing after release |
 | `FastPath.swift` | Exact-phrase matcher: normalization, phrase table, app open/quit, volume levels |
 | `Decisions.swift` | OpenAI Decisions client, cached catalog, response parsing, credit estimate |
 | `LocalDecider.swift` | Perplexity Decider client and the option shortlist for it |

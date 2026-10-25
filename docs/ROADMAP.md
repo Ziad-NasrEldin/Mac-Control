@@ -1,6 +1,6 @@
 # Roadmap
 
-Run any test with `./selftest.sh <name>` (names in brackets). Full suite: 69 checks in 15 suites, all passing. See [Development → Self-tests](DEVELOPMENT.md#self-tests).
+Run any test with `./selftest.sh <name>` (names in brackets). Full suite: 86 checks in 17 suites, all passing. See [Development → Self-tests](DEVELOPMENT.md#self-tests).
 
 ## Control more of the Mac
 - [x] 1. Menu items in any app — the front app's menu bar via Accessibility ("export as PDF", "scientific mode") [native]
@@ -13,6 +13,8 @@ Run any test with `./selftest.sh <name>` (names in brackets). Full suite: 69 che
 - [x] 8. Chained commands — up to 3 steps per command, run in order
 
 ## Faster and more accurate
+- [x] Act while still talking — live transcription; finished clauses run before you let go; next clause decided against the newly opened app [stream]
+- [x] Dictated text inside commands — "…that says …", "type …"; typed only into the intended app [utterance, stream]
 - [x] Exact phrases skip the API — matched locally in microseconds ("open notes", "volume 40", "undo that") [fastpath]
 - [x] Prompt caching — stable action catalog sent as cached `input` (~2,100 tokens cached per call); same speed, cheaper [caching]
 - [x] Low-confidence picker — under 50% (adjustable), shows the top 3; press 1–3 or say the number [picker]

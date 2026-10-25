@@ -41,6 +41,8 @@ final class Prefs: ObservableObject {
     @Published var overlayPosition: Overlay.Position { didSet { d.set(overlayPosition.rawValue, forKey: "overlayPosition"); onChange?() } }
     @Published var sounds: Bool { didSet { d.set(sounds, forKey: "sounds"); onChange?() } }
     @Published var keepMicReady: Bool { didSet { d.set(keepMicReady, forKey: "keepMicReady"); onChange?() } }
+    /// Run finished clauses ("open the notes app and …") before the user lets go.
+    @Published var actWhileTalking: Bool { didSet { d.set(actWhileTalking, forKey: "actWhileTalking") } }
     /// Ask Perplexity's local Decider app when OpenAI fails (errors, outages, no credits, no key).
     @Published var localFallback: Bool { didSet { d.set(localFallback, forKey: "localFallback") } }
     @Published var localDeciderURL: String { didSet { d.set(localDeciderURL, forKey: "localDeciderURL") } }
@@ -54,6 +56,7 @@ final class Prefs: ObservableObject {
         overlayPosition = Overlay.Position(rawValue: d.string(forKey: "overlayPosition") ?? "") ?? .top
         sounds = d.object(forKey: "sounds") as? Bool ?? true
         keepMicReady = d.bool(forKey: "keepMicReady")
+        actWhileTalking = d.object(forKey: "actWhileTalking") as? Bool ?? true
         localFallback = d.object(forKey: "localFallback") as? Bool ?? true
         localDeciderURL = d.string(forKey: "localDeciderURL") ?? "http://127.0.0.1:8080"
     }
