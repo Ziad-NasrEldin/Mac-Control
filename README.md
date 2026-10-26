@@ -2,42 +2,21 @@
 
 <h1 align="center">Mac Control</h1>
 
+<!-- TODO: hero screenshot or short video of the overlay in action -->
+
 **Hold a key, say what you want, and your Mac does it.**
 
-Mac Control is a menu-bar app for macOS that turns speech into actions across the whole system: open and quit apps, move and tile windows, click buttons and menu items in any app, drive your browser, change the volume or brightness, run your Shortcuts, and type by voice. Speech is transcribed **on your Mac** by NVIDIA Parakeet; the action is picked by a fast decision model (OpenAI's Decisions API, with Perplexity's local Decider as an offline fallback), and it runs instantly.
+Mac Control is a menu-bar app for Mac users who'd rather speak than hunt through menus: open and quit apps, move and tile windows, click buttons and menu items in any app, drive the browser, change the volume or brightness, run Shortcuts, and type by voice — with speech transcribed on your Mac.
 
-```
-⌘ + Right ⌥  (hold)  →  "move this to my other monitor"  →  window moves   ·  ~0.5 s
-```
+## What you can do
 
-A small overlay shows what it heard, what it picked, how confident it was, and how many milliseconds each step took.
+- **Keep talking.** Say "open Notes and create a new note that says hello": Notes opens the moment you say "…and", the note is created, and your words are typed in.
+- **Run the whole Mac.** Apps, windows, menus, buttons, browser tabs and links, system settings, media, Shortcuts.
+- **Type by voice.** Add ⇧ Shift to type what you say into any text field, or drop dictated text into a command ("…that says", "…saying", "type …").
+- **Chain it, or save it.** "open Safari, make a new tab and set volume to 30". Macros like "work mode" open Slack, Mail and Chrome.
+- **Stay in control.** Risky actions (quit, lock, close window, Shortcuts) ask first when the model isn't sure; unclear commands show the top 3 to pick from; **"undo that"** reverses the last command.
 
----
-
-## Highlights
-
-- **Acts while you're still talking** — say "open Notes and create a new note that says hello": Notes opens the moment you say "…and", the note is created, and your words are typed in.
-- **Whole-Mac control** — apps, windows, menus, buttons, browser tabs and links, system settings, media, Shortcuts.
-- **Fast** — on-device speech in ~50 ms; exact phrases ("open notes", "volume 40") skip the network entirely and run in microseconds; everything else is decided in ~0.3–0.8 s.
-- **Private by default** — your voice never leaves the Mac. Only the transcript and a list of possible actions are sent to the decision model.
-- **Safe** — risky actions (quit, lock, close window, Shortcuts) ask first when the model isn't sure; unclear commands show the top 3 to pick from; **"undo that"** reverses the last command.
-- **Works offline** — if OpenAI is down, out of credits or not configured, Perplexity's Decider running locally takes over.
-- **Chained commands** — "open Safari, make a new tab and set volume to 30".
-- **Dictated text inside commands** — "…that says", "…saying", "type …" types the rest into the app you're working in.
-- **Typing mode** — add ⇧ Shift to type what you say into any text field.
-- **Macros** — "work mode" → open Slack, Mail and Chrome.
-
-## Requirements
-
-| | |
-|---|---|
-| macOS | 14 Sonoma or later (developed on macOS 27) |
-| Mac | Apple Silicon (Parakeet runs on the Neural Engine) |
-| Toolchain | Xcode Command Line Tools with Swift 6 (`xcode-select --install`) |
-| Decision model | An OpenAI API key with access to the Decisions API (`gpt-6-luna`), **or** Perplexity's [Decider](docs/CONFIGURATION.md#local-decider-fallback) app running locally, or both |
-| Disk | ~450 MB for the speech model (downloaded on first launch) |
-
-## Quick start
+## Try it
 
 ```bash
 git clone https://github.com/Ziad-NasrEldin/Mac-Control.git
@@ -55,17 +34,13 @@ On first launch the **Setup** window walks you through:
 4. **Speech model** — Parakeet downloads once (~450 MB) and then loads in under a second.
 5. **Browsers** — the first time you switch tabs or click a link, macOS asks whether Mac Control may control your browser.
 
-> The app installs as **Mac Control.app** (bundle id `io.github.ziadnasreldin.maccontrol`). Its menu-bar icon is a microphone with your remaining credit next to it. Upgrading from the earlier "Mac Control" build? Your settings, history, macros and API key move over automatically on first launch — see [Troubleshooting](docs/TROUBLESHOOTING.md#upgrading-from-voice-control).
+The app installs as **Mac Control.app** (bundle id `io.github.ziadnasreldin.maccontrol`). Its menu-bar icon is a microphone with your remaining credit next to it. Upgrading from the earlier "Mac Control" build? Your settings, history, macros and API key move over automatically on first launch — see [Troubleshooting](docs/TROUBLESHOOTING.md#upgrading-from-voice-control).
 
-## Using it
+Hold **⌘ + Right ⌥**, speak, release. Add **⇧ Shift** to type what you said into the focused field. If it isn't sure, press **1–3** (or say "two") to pick from the top 3; **Return** confirms a risky action and **Esc** cancels.
 
-| Do this | To |
-|---|---|
-| Hold **⌘ + Right ⌥**, speak, release | Run a command |
-| Hold **⇧ + ⌘ + Right ⌥**, speak, release | Type what you said into the focused field |
-| Say **"undo that"** | Reverse the last command |
-| Press **1–3** (or say "two") | Pick from the top 3 when a command was unclear |
-| Press **Return** / **Esc** | Confirm / cancel a risky action |
+```
+⌘ + Right ⌥  (hold)  →  "move this to my other monitor"  →  window moves   ·  ~0.5 s
+```
 
 Some things to say:
 
@@ -79,7 +54,7 @@ make a QR code                  open Safari and make a new tab   lock screen
 open Notes and create a new note that says call mom at six
 ```
 
-The full list is in **[docs/COMMANDS.md](docs/COMMANDS.md)**.
+The full list is in [Commands](docs/COMMANDS.md).
 
 ## How it works
 
@@ -100,42 +75,33 @@ flowchart LR
     Q --> A
 ```
 
-1. **While you hold the key** the mic records and Parakeet transcribes live every ~0.35 s; each finished clause ("open Notes **and**…") is decided and run right away while you keep talking. Meanwhile a TLS connection to OpenAI is warmed up, and the front app's menus, window controls, browser tabs and page links are read in the background.
-2. **When you let go** Parakeet transcribes the audio locally (~50 ms).
-3. **Exact phrases** are matched locally and run immediately — no API call.
-4. **Everything else** goes to the decision model as one multiple-choice question: *which of these ~250 actions did the user mean?* The model returns a choice and a confidence.
-5. **The action runs** through macOS APIs: NSWorkspace, the Accessibility API, Apple Events, synthesized key and media-key events.
+1. **While you hold the key**, NVIDIA Parakeet transcribes live on your Mac every ~0.35 s; finished clauses run right away. A TLS connection to OpenAI is warmed up, and the front app's menus, window controls, browser tabs and page links are read in the background.
+2. **When you let go**, Parakeet transcribes the audio locally (~50 ms).
+3. **Exact phrases** ("open notes", "volume 40") match locally and run in microseconds — no API call.
+4. **Everything else** is one multiple-choice question (~250 actions) to OpenAI's Decisions API (`gpt-6-luna`) and is decided in ~0.3–0.8 s; if OpenAI is down, out of credits or not configured, Perplexity's local Decider takes over. The model returns a choice and a confidence.
+5. **The action runs** through macOS APIs: NSWorkspace, the Accessibility API, Apple Events, synthesized key and media-key events. A small overlay shows what it heard, what it picked, how confident it was, and how many milliseconds each step took.
 
-Details: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+Your voice never leaves the Mac. Only the transcript and a list of possible actions are sent to the decision model.
 
-## Cost
+## Docs
 
-OpenAI's Decisions API bills **$0.10 per 1M uncached input tokens** and doesn't charge for output. A typical command is ~3,500 input tokens, of which ~2,100 are served from the prompt cache — roughly **$0.0002–0.0004 per command**, or a few tens of cents for a thousand commands. Exact phrases and the local Decider cost nothing. The menu bar shows an estimate of your remaining balance (set it once from the menu).
-
-## Privacy
-
-- Audio is processed only on your Mac and is never stored or uploaded.
-- The decision model receives the **transcript**, the **front app's name**, the **current page title**, and the **list of possible actions** (your app names, menu items, button labels, tab titles, link texts). With the local fallback, nothing leaves the Mac.
-- Your API key lives in the macOS Keychain.
-
-More: **[docs/PRIVACY.md](docs/PRIVACY.md)**.
-
-## Documentation
-
-| | |
-|---|---|
-| [Commands](docs/COMMANDS.md) | Everything you can say |
-| [Configuration](docs/CONFIGURATION.md) | Settings, hotkeys, speech models, local fallback, files on disk |
-| [Architecture](docs/ARCHITECTURE.md) | How the pieces fit, request formats, design decisions |
-| [Development](docs/DEVELOPMENT.md) | Building, signing, self-tests, releasing, adding commands |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | Permissions, mic, API errors, and other fixes |
-| [Privacy](docs/PRIVACY.md) | What is sent where |
-| [Roadmap](docs/ROADMAP.md) | What's done and what's next |
-
-## Status
+- [Commands](docs/COMMANDS.md) — everything you can say
+- [Configuration](docs/CONFIGURATION.md) — settings, hotkeys, speech models, local fallback, files on disk
+- [Architecture](docs/ARCHITECTURE.md) — how the pieces fit, request formats, design decisions
+- [Development](docs/DEVELOPMENT.md) — building, signing, self-tests, releasing, adding commands
+- [Troubleshooting](docs/TROUBLESHOOTING.md) — permissions, mic, API errors, and other fixes
+- [Privacy](docs/PRIVACY.md) — what is sent where
+- [Roadmap](docs/ROADMAP.md) — what's done and what's next
+- [Requirements](docs/REQUIREMENTS.md) — macOS, hardware, toolchain, disk, and cost
 
 All roadmap items except notarization and auto-updates are implemented and covered by 86 self-test checks in 17 suites that drive real apps, real audio and the real APIs (`./selftest.sh <name>`).
 
 ## License
 
 No license has been chosen yet, so all rights are reserved by the author.
+
+---
+
+Built by [Ziad Ahmed](https://github.com/Ziad-NasrEldin) at [MaVoid](https://mavoid.com).
+
+[Website](https://mavoid.com) · [LinkedIn](https://linkedin.com/in/ziad-ahmed-634202332) · [GitHub](https://github.com/Ziad-NasrEldin)
