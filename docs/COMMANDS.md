@@ -162,7 +162,7 @@ Both thresholds are in **Settings → General → Safety**.
 
 ## Typing mode
 
-Hold **⇧ + ⌘ + Right ⌥** (Shift can be added at any point while holding) and speak. The transcript is typed into whatever field has focus, followed by a space. No API call is made, the clipboard isn't touched, and accents and emoji are typed correctly.
+Hold **⇧ + ⌘ + Right ⌥** (Shift can be added at any point while holding) and speak. The transcript is typed into whatever field has focus, followed by a space. With Bark 3.0 Pro installed it makes the transcript (Settings → General → Speech); otherwise Parakeet does. No API call is made, the clipboard isn't touched, and accents and emoji are typed correctly.
 
 ## Exact phrases (instant)
 

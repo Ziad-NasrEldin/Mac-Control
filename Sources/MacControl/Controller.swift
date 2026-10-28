@@ -28,6 +28,9 @@ final class Controller: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     let hotkeyItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     let sttItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    let typingItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    /// Underdog Bark 3.0 Pro, for typing mode.
+    let bark = ParakeetEngine()
     let creditItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
     var holding = false
@@ -81,6 +84,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         rescan()
         Timer.scheduledTimer(withTimeInterval: 600, repeats: true) { [weak self] _ in self?.rescan() }
         listener.parakeet.onStatus = { [weak self] s in self?.sttItem.title = s }
+        bark.onStatus = { [weak self] s in self?.typingItem.title = "Typing: " + s }
         listener.parakeet.onReady = { [weak self] in self?.listener.parakeetBecameReady() }
         listener.onLevel = { [weak self] l in self?.overlay.level(l) }
         listener.onStreamText = { [weak self] t in self?.streamPartial(t) }
@@ -126,6 +130,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(hotkeyItem)
         menu.addItem(sttItem)
+        menu.addItem(typingItem)
         menu.addItem(.separator())
         menu.addItem(creditItem)
         menu.addItem(withTitle: "Set Credit Balance…", action: #selector(askBalance), keyEquivalent: "")
@@ -149,6 +154,8 @@ final class Controller: NSObject, NSApplicationDelegate {
         Sounds.enabled = prefs.sounds
         hotkeyItem.title = "Hold \(prefs.hotkey.title) and speak" + (prefs.handsFreeTap ? " · tap for hands-free" : "") + " · add ⇧ to type"
         listener.parakeet.load(prefs.speechModel)
+        if prefs.barkForTyping && BarkModel.isInstalled { bark.loadBark() } else if bark.ready { bark.unload() }
+        typingItem.isHidden = !(prefs.barkForTyping && BarkModel.isInstalled)
         listener.setAlwaysOn(prefs.keepMicReady)
     }
 
@@ -220,6 +227,7 @@ final class Controller: NSObject, NSApplicationDelegate {
             begin()
         } else if down && shift && !typingMode && !holdConsumed {
             typingMode = true
+            useTypingEngine()
             showListening()
         } else if !down && holding {
             holding = false
@@ -232,6 +240,11 @@ final class Controller: NSObject, NSApplicationDelegate {
             }
             end()
         }
+    }
+
+    /// Typing mode's final transcripts come from Bark when it's on and loaded; commands stay on Parakeet.
+    func useTypingEngine() {
+        listener.finalEngine = typingMode && prefs.barkForTyping && bark.ready ? bark : nil
     }
 
     func startHandsFree() {
@@ -272,6 +285,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         if !typingMode { client?.warmUp() }
         stream = StreamState()
         finishing = false; queuedFinals = []; heldPartial = nil; typedPieces = []; turn += 1
+        useTypingEngine()
         Sounds.listen()
         showListening()
         listener.start()
@@ -428,7 +442,8 @@ final class Controller: NSObject, NSApplicationDelegate {
     // MARK: Typing mode
 
     func type(_ text: String) {
-        let meta = listener.lastSttMs.map { "speech \($0) ms  ·  no API call" } ?? "no API call"
+        let engine = listener.finalEngine?.ready == true ? "Bark 3.0 Pro" : "Parakeet"
+        let meta = engine + (listener.lastSttMs.map { "  ·  speech \($0) ms" } ?? "") + "  ·  no API call"
         overlay.show(heard: "“\(text)”", picked: "Typed into \(targetApp?.localizedName ?? "the focused field")",
                      meta: meta, color: .systemPurple, autoHide: 2)
         log("typed \(text.count) chars into \(targetApp?.localizedName ?? "?")")

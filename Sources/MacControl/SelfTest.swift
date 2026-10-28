@@ -32,6 +32,7 @@ final class SelfTest {
             case "endpoint": await endpoint()
             case "live": await live()
             case "handsfree": await handsFree()
+            case "bark": await barkTyping()
             default: check(false, "unknown test \(name)")
             }
             log("TEST end \(name): \(passed) passed, \(failed) failed")
@@ -622,6 +623,30 @@ final class SelfTest {
         await sleep(0.5)
         check(!c.listener.isEngineRunning || c.listener.alwaysOn, "mic closed afterwards")
         if !wasRunning { NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.Notes" }?.terminate() }
+    }
+
+    /// Typing mode's final transcript comes from Bark 3.0 Pro; compares it with Parakeet on the same audio.
+    func barkTyping() async {
+        check(BarkModel.isInstalled, "Bark 3.0 Pro installed at \(BarkModel.directory.path)")
+        guard await waitParakeet() else { check(false, "Parakeet loaded"); return }
+        Prefs.shared.barkForTyping = true
+        c.applyPrefs()
+        let loaded = await waitFor(120) { self.c.bark.ready }
+        check(loaded, "Bark loaded: \(c.bark.status)")
+        guard loaded else { return }
+        for phrase in ["Hi Sarah, could you send me the quarterly report by Thursday afternoon?",
+                       "The meeting with Doctor Nasr Eldin is moved to 3:45 PM in the Cairo office."] {
+            let audio = synthesize(phrase)
+            let (p, pms) = await withCheckedContinuation { cont in c.listener.parakeet.transcribe(audio) { cont.resume(returning: ($0, $1)) } }
+            let (b, bms) = await withCheckedContinuation { cont in c.bark.transcribe(audio) { cont.resume(returning: ($0, $1)) } }
+            log("TEST info said:    \(phrase)\n  parakeet (\(pms) ms): \(p)\n  bark     (\(bms) ms): \(b)")
+            check(!b.isEmpty && FastPath.normalize(b).split(separator: " ").count >= 8, "Bark transcribed it in \(bms) ms (Parakeet \(pms) ms)")
+        }
+        // Typing mode routes its final transcripts to Bark; commands don't.
+        c.typingMode = true; c.useTypingEngine()
+        check(c.listener.finalEngine === c.bark, "typing mode uses Bark for final transcripts")
+        c.typingMode = false; c.useTypingEngine()
+        check(c.listener.finalEngine == nil, "command mode stays on Parakeet")
     }
 
     func focusedText(_ app: NSRunningApplication) -> String {

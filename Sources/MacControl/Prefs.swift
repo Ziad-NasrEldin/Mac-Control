@@ -43,6 +43,8 @@ final class Prefs: ObservableObject {
     @Published var keepMicReady: Bool { didSet { d.set(keepMicReady, forKey: "keepMicReady"); onChange?() } }
     /// Run finished clauses ("open the notes app and …") before the user lets go.
     @Published var actWhileTalking: Bool { didSet { d.set(actWhileTalking, forKey: "actWhileTalking") } }
+    /// Typing mode transcribes with Underdog Bark 3.0 Pro (when installed) instead of Parakeet.
+    @Published var barkForTyping: Bool { didSet { d.set(barkForTyping, forKey: "barkForTyping"); onChange?() } }
     /// A quick tap of the hotkey listens hands-free until the next tap; each pause runs a command.
     @Published var handsFreeTap: Bool { didSet { d.set(handsFreeTap, forKey: "handsFreeTap"); onChange?() } }
     /// Ask Perplexity's local Decider app when OpenAI fails (errors, outages, no credits, no key).
@@ -60,6 +62,7 @@ final class Prefs: ObservableObject {
         keepMicReady = d.bool(forKey: "keepMicReady")
         actWhileTalking = d.object(forKey: "actWhileTalking") as? Bool ?? true
         handsFreeTap = d.object(forKey: "handsFreeTap") as? Bool ?? true
+        barkForTyping = d.object(forKey: "barkForTyping") as? Bool ?? true
         localFallback = d.object(forKey: "localFallback") as? Bool ?? true
         localDeciderURL = d.string(forKey: "localDeciderURL") ?? "http://127.0.0.1:8080"
     }

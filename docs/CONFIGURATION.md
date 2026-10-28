@@ -35,6 +35,7 @@ Add **⇧ Shift** while holding to switch to typing mode.
 |---|---|---|
 | Model | Parakeet v2 — English | v3 understands 25 European languages; switching downloads it once |
 | Act while I'm still talking | On | Runs finished clauses ("open Notes and…"), and the clause you're still saying once it's unambiguous, before the sentence ends; see [Commands → Acting while you talk](COMMANDS.md#acting-while-you-talk) |
+| Typing mode uses Bark 3.0 Pro | On | Typing mode's transcript comes from [Underdog Bark 3.0 Pro](https://huggingface.co/ConwayResearch/Underdog-Bark-3.0-Pro), an English fine-tune of Parakeet v3 (4.29% vs 4.94% average word error by its maker's scoring). Not downloaded by the app: its `coreml/` folder must be at `~/Models/bark-3.0-pro/coreml` (shared with OpenSuperWhisper). Uses ~1.3 GB of memory; commands and live transcripts stay on Parakeet. |
 | Keep mic ready | Off | Keeps the mic open and buffers the last 500 ms, so the first word is never clipped (mic start 0 ms instead of ~170 ms). The orange mic indicator stays on. |
 
 ### Safety
@@ -114,6 +115,7 @@ Stored in the macOS Keychain (service `io.github.ziadnasreldin.maccontrol`, acco
 | `keepMicReady` | bool | false |
 | `actWhileTalking` | bool | true |
 | `handsFreeTap` | bool | true |
+| `barkForTyping` | bool | true |
 | `localFallback` | bool | true |
 | `localDeciderURL` | URL | `http://127.0.0.1:8080` |
 | `creditBalance`, `creditSpent`, `creditCalls`, `creditExhausted` | — | credit counter state |

@@ -204,6 +204,11 @@ struct GeneralView: View {
                 Picker("Model", selection: $prefs.speechModel) {
                     ForEach(SpeechModel.allCases) { Text($0.title).tag($0) }
                 }
+                Toggle("Typing mode uses Bark 3.0 Pro (more accurate, ~1.3 GB of memory)", isOn: $prefs.barkForTyping)
+                    .disabled(!BarkModel.isInstalled)
+                Text(BarkModel.isInstalled ? "Commands and live transcripts stay on Parakeet, which is faster."
+                                           : "Not installed: put its Core ML folder at \(BarkModel.directory.path).")
+                    .font(.caption).foregroundStyle(.secondary)
                 Toggle("Keep mic ready (no clipped first word; mic indicator stays on)", isOn: $prefs.keepMicReady)
                 Toggle("Act while I'm still talking (“open Notes and …” opens Notes right away)", isOn: $prefs.actWhileTalking)
             }

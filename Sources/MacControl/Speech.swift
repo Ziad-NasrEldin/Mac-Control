@@ -20,6 +20,9 @@ final class ParakeetEngine {
     var ready: Bool { manager != nil }
     var onStatus: ((String) -> Void)?
     var onReady: (() -> Void)?
+    /// Silence put before every clip (Bark was evaluated with 0.25 s of it).
+    private var leadingSilence = 0
+    private var barkLoading = false
 
     /// Downloads the model (first use only, cached afterwards) and loads it onto the Neural Engine.
     func load(_ model: SpeechModel) {
@@ -49,13 +52,47 @@ final class ParakeetEngine {
         }
     }
 
+    /// Loads Underdog Bark 3.0 Pro from its Core ML folder (see `BarkModel`) instead of a Parakeet release.
+    func loadBark() {
+        guard !barkLoading else { return }
+        barkLoading = true
+        leadingSilence = BarkModel.leadingSilenceSamples
+        setStatus("Bark 3.0 Pro: loading…")
+        Task {
+            do {
+                let start = Date()
+                let models = try BarkModel.loadModels()
+                let m = AsrManager(config: .default)
+                try await m.loadModels(models)
+                var state = try TdtDecoderState()
+                _ = try? await m.transcribe([Float](repeating: 0, count: 16_000), decoderState: &state)
+                await MainActor.run {
+                    guard self.barkLoading else { return }
+                    self.manager = m
+                    self.setStatus("Bark 3.0 Pro ready (\(Int(Date().timeIntervalSince(start)))s load)")
+                    self.onReady?()
+                }
+            } catch {
+                log("bark load failed: \(error)")
+                await MainActor.run { self.barkLoading = false; self.setStatus("Bark 3.0 Pro failed to load — typing uses Parakeet") }
+            }
+        }
+    }
+
+    /// Frees the model (it holds over a gigabyte).
+    func unload() {
+        barkLoading = false; loading = nil; manager = nil
+        setStatus("Off")
+    }
+
     private func setStatus(_ s: String) { status = s; log(s); onStatus?(s) }
 
     /// `samples` must be 16 kHz mono Float. Calls back on main with text and processing ms.
     func transcribe(_ samples: [Float], completion: @escaping (String, Int) -> Void) {
         guard let manager else { completion("", 0); return }
         // Parakeet wants at least ~1 s of audio; pad short commands with silence.
-        let padded = samples.count < 16_000 ? samples + [Float](repeating: 0, count: 16_000 - samples.count) : samples
+        let lead = [Float](repeating: 0, count: leadingSilence) + samples
+        let padded = lead.count < 16_000 ? lead + [Float](repeating: 0, count: 16_000 - lead.count) : lead
         Task {
             let start = DispatchTime.now()
             var result = ""
@@ -121,6 +158,10 @@ struct SpeechGate {
 
 final class Listener {
     let parakeet = ParakeetEngine()
+    /// Makes the final transcripts (at each pause and on release) when set — Bark for typing mode. Live transcripts
+    /// stay on `parakeet`, which is faster.
+    var finalEngine: ParakeetEngine?
+    private var finals: ParakeetEngine { finalEngine.flatMap { $0.ready ? $0 : nil } ?? parakeet }
     private let converter = AudioConverter()
     private var samples16k: [Float] = []
     private var usingParakeet = false
@@ -247,7 +288,7 @@ final class Listener {
             if ended {
                 self.segment += 1; self.streamedSamples = 0; self.utterances += 1
                 self.awaitingFinal = true
-                self.parakeet.transcribe(closed) { [weak self] text, ms in
+                self.finals.transcribe(closed) { [weak self] text, ms in
                     guard let self else { return }
                     log("utterance ended on a pause: \"\(text)\" (\(ms) ms)")
                     // Delivered even if listening restarted meanwhile: it's what was said.
@@ -380,7 +421,7 @@ final class Listener {
     private func finishStop(_ audio: [Float], voiced: Int) {
         // Everything was already said and handled at a pause; only quiet is left.
         guard peak >= 0.002, utterances == 0 || voiced >= Listener.minVoiced else { deliver(); return }
-        parakeet.transcribe(audio) { [weak self] text, ms in
+        finals.transcribe(audio) { [weak self] text, ms in
             guard let self else { return }
             self.best = text; self.lastSttMs = ms
             self.deliver()
