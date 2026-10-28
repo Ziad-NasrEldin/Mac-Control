@@ -26,9 +26,13 @@ Everything that can be prepared while you're still talking is: the transcript is
 
 ### Acting while you talk
 
-While the key is held, `Listener` re-transcribes the growing recording every ~0.35 s (once at least 0.5 s exists and 0.25 s more has arrived; ~50 ms per pass). `Utterance.parse` splits each live transcript into clauses at "and", "then", commas and full stops; text after "that says / saying / type / write…" is dictated text, and a search swallows the rest of the sentence. Every clause except the last one still being spoken is *finished*.
+While listening (key held, or hands-free after a tap), `Listener` re-transcribes the current *utterance* every ~0.15 s (once 0.4 s exists and 0.15 s more has arrived; ~50 ms per pass). `SpeechGate` tracks speech against a noise floor that follows the room; ~0.7 s of quiet after speech closes the utterance: its final transcript goes to `Controller.utteranceEnded`, the buffer starts over, and only audio since the last pause is ever re-run (past 15 s, a quarter-second breath is enough to close it). Hands-free, only a 0.5 s lead-in is kept before speech starts; while the key is held nothing is dropped. The noise floor barely moves during speech, and an utterance is closed at 25 s regardless.
 
-Finished clauses run one at a time: exact phrase → instant, otherwise a single-step decision. They only run early when they're confident (≥60%) and not risky; otherwise early execution stops and the rest waits for release. After each step the app it targeted (the *intended app*: the front app at key press, then whatever an `open:` or browser step brought forward) must be in front, or the command stops. The front app's menus and controls are then re-read so the next clause is decided against the right app. On release, the remaining clauses of the final transcript run the same way, then the dictated text is typed — only into the intended app.
+`Utterance.parse` splits each live transcript into clauses at "and", "then", commas and `. ? !`; text after "that says / saying / type / write… / <the title> say" is dictated text, and a search swallows the rest of the sentence. Every clause except the last one still being spoken is *finished*. `Utterance.core` strips talk around a command ("Alright, can you … for me?") before matching, and clauses that are only chatter ("Great, great.") are skipped.
+
+Finished clauses run one at a time: exact phrase → instant, otherwise a single-step decision. They only run early when they're confident (≥60%) and not risky; "none" skips the clause; anything else unclear stops early execution and the rest waits for the pause. The clause still being spoken is checked on every transcript too (exact phrases for free, otherwise one decision per new word): it runs once settled — an exact phrase, or the same ≥75% answer twice — if nothing longer could still follow (`couldGrow`: another app's name, a longer phrase or macro), and never for numbers, websites, searches or risky actions. At the end, the final clauses are matched to what already ran by their words (`Controller.remaining`), so re-punctuation doesn't repeat a step and a clause that grew is decided again. A search that has started brings the browser forward. After each step the app it targeted (the *intended app*: the front app at key press, then whatever an `open:` or browser step brought forward) must be in front, or the command stops. The front app's menus and controls are then re-read so the next clause is decided against the right app. At the pause (or on release), the remaining clauses of the final transcript run the same way, then the dictated text is typed — only into the intended app, and only once the hotkey is let go.
+
+Utterances are *turns*: until a turn's steps are out (`turnDone(turn)`, numbered so a late completion from an earlier turn is ignored), later utterances queue and live transcripts are held, so steps happen in the order spoken. Hands-free, an utterance that doesn't read like a command isn't sent to the model. Each turn then re-reads the front app. The last few commands (two minutes) are added to each decision's input, for "once you're there…".
 
 ## Source map
 
@@ -38,8 +42,8 @@ Finished clauses run one at a time: exact phrase → instant, otherwise a single
 |---|---|
 | `main.swift` | Bootstraps `NSApplication` as an accessory (menu-bar only) app |
 | `Controller.swift` | The app delegate: menu bar, hotkey, routing (picker → exact phrase → API → fallback), building options, confirm/pick flow, running chained steps, history |
-| `Speech.swift` | `ParakeetEngine` (model download/load/transcribe) and `Listener` (AVAudioEngine capture, 16 kHz resampling, pre-roll ring buffer, levels, Apple Speech fallback) |
-| `Streaming.swift` | Acting while you talk: `Utterance` (clauses, dictated text, which clauses are finished), running finished clauses early, the intended-app focus guard, finishing after release |
+| `Speech.swift` | `ParakeetEngine` (model download/load/transcribe), `SpeechGate` (speech vs. pause) and `Listener` (AVAudioEngine capture, 16 kHz resampling, pre-roll ring buffer, utterances ended by pauses, levels, Apple Speech fallback) |
+| `Streaming.swift` | Acting while you talk: `Utterance` (clauses, dictated text, chatter, which clauses are finished), running finished and settled clauses early, the intended-app focus guard, finishing each utterance |
 | `FastPath.swift` | Exact-phrase matcher: normalization, phrase table, app open/quit, volume levels |
 | `Decisions.swift` | OpenAI Decisions client, cached catalog, response parsing, credit estimate |
 | `LocalDecider.swift` | Perplexity Decider client and the option shortlist for it |
@@ -68,6 +72,7 @@ Every action is a string value, used as the option value sent to the model and d
 | `window:<cmd>` | `window:left` | Accessibility API; tiling presses the app's own Window-menu item so macOS applies its margins |
 | `system:<cmd>` | `system:volume=40` | Media-key events, AppleScript, `pmset`, key shortcuts |
 | `browser:<cmd>` | `browser:newtab` | Key shortcuts; JavaScript via Apple Events for scrolling |
+| `url:<address>` | `url:https://x.com` | `NSWorkspace.open` in the current (or default) browser; only from exact phrases ("open X.com") |
 | `tab:<window>:<index>` | `tab:1:3` | AppleScript |
 | `click:<n>` | `click:12` | JavaScript click on an element tagged during the page scan |
 | `menu:<n>` / `ui:<n>` | `menu:7` | `AXPress` on the element captured at key-down |

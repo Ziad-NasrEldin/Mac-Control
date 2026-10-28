@@ -58,14 +58,24 @@ enum FastPath {
 
     /// Returns the actions to run, or nil to fall through to the API.
     static func match(_ heard: String, apps: [AppEntry], macros: [Macro]) -> [String]? {
-        let n = normalize(heard)
+        // Exact phrases and macros as said first ("now playing", "right half"), then without the talk around them.
+        let said = normalize(heard)
+        if let i = macros.firstIndex(where: { normalize($0.phrase) == said }) { return ["macro:\(i)"] }
+        if let v = phrases[said] { return [v] }
+        let core = Utterance.core(heard)
+        let n = normalize(core)
         guard !n.isEmpty else { return nil }
         if let i = macros.firstIndex(where: { normalize($0.phrase) == n }) { return ["macro:\(i)"] }
         if let v = phrases[n] { return [v] }
         if let pct = volumeLevel(n) { return ["system:volume=\(pct)"] }
+        if let site = website(core) { return ["url:https://\(site)"] }
         for verb in openVerbs where n.hasPrefix(verb + " ") {
-            let target = squash(String(n.dropFirst(verb.count + 1)))
-            if let a = apps.first(where: { squash($0.name) == target }) { return ["open:\(a.name)"] }
+            // "open up the Notes app", "launch the Arc browser"
+            var rest = String(n.dropFirst(verb.count + 1))
+            if rest.hasPrefix("up ") { rest.removeFirst(3) }
+            let target = squash(rest)
+            let bare = squash(rest.replacingOccurrences(of: #" (app|application|browser)$"#, with: "", options: .regularExpression))
+            if let a = apps.first(where: { squash($0.name) == target }) ?? apps.first(where: { squash($0.name) == bare }) { return ["open:\(a.name)"] }
         }
         for verb in quitVerbs where n.hasPrefix(verb + " ") {
             let target = squash(String(n.dropFirst(verb.count + 1)))
@@ -75,6 +85,15 @@ enum FastPath {
             }
         }
         return nil
+    }
+
+    /// "open X.com", "go to github dot com" → "x.com", "github.com".
+    static func website(_ core: String) -> String? {
+        let t = core.lowercased().replacingOccurrences(of: " dot ", with: ".")
+        let pattern = #"^(?:open|go to|show|launch|visit|pull up)(?: up)?(?: the)? ((?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|org|net|io|ai|dev|app|co|edu|gov|me|tv|uk|de|fr|eg)(?:/\S*)?)(?: website| site| page)?$"#
+        guard let r = t.range(of: pattern, options: .regularExpression) else { return nil }
+        let words = t[r].split(separator: " ")
+        return words.first { $0.contains(".") }.map(String.init)
     }
 
     /// "volume 30", "set volume to 30 percent" → 30 (rounded to the nearest 10).

@@ -29,6 +29,9 @@ final class SelfTest {
             case "fallback": await fallback()
             case "utterance": utterance()
             case "stream": await streamDemo()
+            case "endpoint": await endpoint()
+            case "live": await live()
+            case "handsfree": await handsFree()
             default: check(false, "unknown test \(name)")
             }
             log("TEST end \(name): \(passed) passed, \(failed) failed")
@@ -187,6 +190,9 @@ final class SelfTest {
             ("Maximize", "window:maximize"), ("Next display.", "window:nextdisplay"), ("New tab", "browser:newtab"),
             ("Undo that", "undo"), ("Dark mode", "system:darkon"), ("Quit Finder", "quit:Finder"),
             ("open notes and make a new tab", nil), ("what's the weather", nil), ("open nonexistent app xyz", nil),
+            ("Alright. Can you open up the Notes app for me?", "open:Notes"), ("Could you please open Safari", "open:Safari"),
+            ("Now, can you open up X.com?", "url:https://x.com"), ("go to github dot com", "url:https://github.com"),
+            ("Okay, can you mute", "system:mute"), ("open the notes", "open:Notes"),
         ]
         for (said, expect) in cases {
             let t0 = DispatchTime.now()
@@ -463,6 +469,9 @@ final class SelfTest {
             ("open Safari and search for salt", false, ["open Safari", "search for salt"], nil, 1),
             ("Open Notes. Create a new note.", true, ["Open Notes", "Create a new note"], nil, 2),
             ("volume 40", false, ["volume 40"], nil, 0),
+            ("Alright. Can you open up the Notes app for me? And", false, ["Alright", "Can you open up the Notes app for me"], nil, 2),
+            ("Okay, let's make the title say 'Hello.'", true, ["Okay", "let's make the title"], "Hello.", 2),
+            ("can you say that again", true, ["can you say that again"], nil, 1),
         ]
         for (said, final, clauses, text, complete) in cases {
             let u = Utterance.parse(said, final: final)
@@ -470,6 +479,149 @@ final class SelfTest {
                   "\(final ? "final" : "partial") \"\(said)\" → \(u.clauses) text=\(u.text ?? "-") ready=\(u.complete)")
         }
         check(Utterance.looksLikeCommand("create a new note") && !Utterance.looksLikeCommand("the weather today"), "command detection")
+        check(Utterance.looksLikeCommand("Alright, can you open up the Notes app for me?") && Utterance.looksLikeCommand("let's make a new note"),
+              "command detection through polite phrasing")
+        for (said, expect) in [("Alright. Can you open up the Notes app for me?", "open up the Notes app"), ("Now, can you open up X.com?", "open up X.com"),
+                               ("And once you're there, can you Google search Norbert Wiener?", "Google search Norbert Wiener"),
+                               ("let's make a new note", "make a new note")] {
+            check(Utterance.core(said) == expect, "core \"\(said)\" → \"\(Utterance.core(said))\"")
+        }
+        for (said, chatter) in [("Great, great.", true), ("Cool, awesome. Thank you.", true), ("Okay", true), ("once you're there", true),
+                                ("open notes", false), ("Safari", false), ("make it bigger", false)] {
+            check(Utterance.isChatter(said) == chatter, "chatter \"\(said)\" → \(Utterance.isChatter(said))")
+        }
+        for (said, expect) in [("Great, great. Okay, can you open up the Arc browser?", "can you open up the Arc browser?"),
+                               ("search for salt and pepper. Thanks.", "search for salt and pepper"),
+                               ("Create a new note that says great, thanks", "Create a new note that says great, thanks"),
+                               ("Cool, awesome. Thank you.", "")] {
+            check(Utterance.dropChatter(said) == expect, "chatter dropped from \"\(said)\" → \"\(Utterance.dropChatter(said))\"")
+        }
+        let chrome = Utterance.parse("open Google Chrome", final: false)
+        check(!chrome.searching && chrome.clauses == ["open Google Chrome"], "\"open Google Chrome\" isn't a search: \(chrome.clauses)")
+        // Final clauses are matched to what already ran by their words, not their position.
+        let ran = [(words: Controller.words("Okay open Safari"), action: "open:Safari"), (words: Controller.words("open Notes"), action: "open:Notes")]
+        let left = Controller.remaining(["Okay", "open Safari", "new tab"], ran: Array(ran.prefix(1)))
+        check(left.map(\.clause) == ["new tab"] && left[0].ran == nil, "re-punctuated final: \(left.map(\.clause))")
+        let grew = Controller.remaining(["open Notes in a new window"], ran: Array(ran.suffix(1)))
+        check(grew.count == 1 && grew[0].ran == "open:Notes", "grown clause decided again: \(grew.map { "\($0.clause) (ran \($0.ran ?? "-"))" })")
+        check(searchQuery(from: "can you Google search Norbert Wiener for me?") == "Norbert Wiener",
+              "search query: \"\(searchQuery(from: "can you Google search Norbert Wiener for me?"))\"")
+    }
+
+    /// Pauses end utterances: two phrases with a second of quiet between them are two utterances, a short gap isn't.
+    func endpoint() async {
+        let quiet = [Float](repeating: 0, count: 16_000)
+        let noise = (0..<16_000).map { _ in Float.random(in: -0.002...0.002) }
+        // A fan or music that starts mid-sentence and never stops: the pause after the speech still has to be found.
+        let hum = (0..<48_000).map { Float(sin(Double($0) * 0.07) * 0.03) }
+        for (name, gap, tail, expect) in [("one-second pause", quiet, quiet, 2), ("one-second pause over room noise", noise, quiet, 2),
+                                          ("quarter-second gap", Array(quiet.prefix(4_000)), quiet, 1),
+                                          ("steady hum after speaking", quiet, hum, 2)] {
+            let audio = synthesize("open notes") + gap + synthesize("create a new note") + tail
+            var gate = SpeechGate(), ends = 0, sinceTick = 0
+            var at = 0
+            while at < audio.count {
+                gate.push(Array(audio[at..<min(at + 341, audio.count)]))
+                at += 341; sinceTick += 341
+                if sinceTick >= 2_400 { sinceTick = 0; if gate.ended(after: 0.7, long: false) { ends += 1; gate.reset() } }
+            }
+            check(ends == expect, "\(name): \(ends) utterance(s), expected \(expect)")
+        }
+    }
+
+    /// The clause still being spoken runs once two transcripts agree, before any "and" or pause.
+    func live() async {
+        c.rescan(); await sleep(1)
+        let wasRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.Notes" }
+        NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.finder" }?.activate()
+        await sleep(0.5)
+        let actWhileTalking = Prefs.shared.actWhileTalking
+        Prefs.shared.actWhileTalking = true
+        c.stream = StreamState(); c.finishing = false
+        c.snapshot()
+        c.holding = true; c.typingMode = false
+        var openedAt: String?
+        for p in ["Alright.", "Alright. Can you open", "Alright. Can you open up the", "Alright. Can you open up the Notes",
+                  "Alright. Can you open up the Notes app", "Alright. Can you open up the Notes app for me"] {
+            c.streamPartial(p)
+            await sleep(0.3)
+            if openedAt == nil, NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.Notes" { openedAt = p }
+        }
+        if openedAt == nil, await waitFor(3, { NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.Notes" }) { openedAt = "(late)" }
+        check(openedAt != nil && openedAt != "(late)", "Notes opened mid-sentence, at \"\(openedAt ?? "never")\" — \(c.stream.actions)")
+        check(c.stream.actions == ["open:Notes"], "ran exactly once: \(c.stream.actions)")
+        // Chatter after it changes nothing, and the end of the turn is quiet.
+        c.streamPartial("Alright. Can you open up the Notes app for me? Great, great.")
+        await sleep(0.4)
+        c.holding = false
+        c.finishTurn("Alright. Can you open up the Notes app for me? Great, great.")
+        let ended = await waitFor(6) { !self.c.finishing }
+        check(c.stream.actions == ["open:Notes"] && ended, "chatter added nothing and the turn ended: \(c.stream.actions)")
+        if !wasRunning { NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.Notes" }?.terminate() }
+
+        // "dark mode" mustn't run while "… off" may still be coming; "volume 4…" never runs early.
+        check(c.couldGrow("system:darkon", words: "dark mode") && !c.couldGrow("system:mute", words: "mute volume"),
+              "phrases that can still grow wait for the end")
+
+        // A final that arrives while another turn is running is queued, and its stale live transcript is dropped.
+        c.stream = StreamState(); c.finishing = true; c.holding = true; c.queuedFinals = []
+        c.streamPartial("new tab and")
+        check(c.heldPartial == "new tab and", "live transcript held while a turn runs")
+        c.utteranceEnded("new tab and scroll down")
+        check(c.heldPartial == nil && c.queuedFinals == ["new tab and scroll down"], "final queued, held transcript dropped")
+        c.queuedFinals = []; c.finishing = false; c.holding = false
+        Prefs.shared.actWhileTalking = actWhileTalking
+    }
+
+    /// Speaks out loud through the Mac's speakers, without blocking the main thread (live transcription runs there).
+    func speakAloud(_ text: String) async {
+        await Task.detached { _ = runTool("/usr/bin/say", ["-r", "190", text]) }.value
+    }
+
+    /// End to end through the real microphone: a tap starts hands-free, spoken commands run at each pause with
+    /// nobody touching a key, chatter does nothing, "stop listening" ends it. Plays speech through the speakers.
+    func handsFree() async {
+        guard await waitParakeet() else { check(false, "Parakeet loaded"); return }
+        c.rescan(); await sleep(1)
+        let wasRunning = NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == "com.apple.Notes" }
+        NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.finder" }?.activate()
+        await sleep(0.5)
+        // A tap: press, release within 0.35 s with nothing said.
+        c.holding = true; c.typingMode = false; c.pressedAt = Date(); c.begin()
+        await sleep(0.15)
+        c.holding = false
+        c.startHandsFree()
+        check(c.handsFree && c.listener.isEngineRunning, "tap → hands-free, mic on")
+        await sleep(0.8)
+
+        var loudest: Float = 0
+        let meter = c.listener.onLevel
+        c.listener.onLevel = { l in loudest = max(loudest, l); meter?(l) }
+        var partials: [String] = []
+        let live = c.listener.onStreamText
+        c.listener.onStreamText = { t in partials.append(t); live?(t) }
+        let start = Date()
+        await speakAloud("Alright. Can you open up the Notes app for me?")
+        let spokenAt = Date().timeIntervalSince(start)
+        let opened = await waitFor(4) { NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.Notes" }
+        let openedAt = Date().timeIntervalSince(start)
+        check(opened, "spoken \"open up the Notes app\" opened Notes with no key held (speech ended \(String(format: "%.1f", spokenAt)) s, Notes in front by \(String(format: "%.1f", openedAt)) s)")
+        log("TEST info turns so far: \(c.recent.map { "\($0.heard) → \($0.did)" }) · loudest mic level \(loudest) · room level \(c.listener.noiseFloor) · live transcripts: \(partials)")
+
+        await sleep(1.5)
+        let before = c.recent.count
+        await speakAloud("Great, great. Thank you.")
+        await sleep(2)
+        check(c.recent.count == before && c.handsFree, "chatter did nothing and kept listening")
+
+        log("TEST info gate after quiet: \(c.listener.gateState) · heard since: \(partials.suffix(4))")
+        await speakAloud("Stop listening.")
+        let stopped = await waitFor(4) { !self.c.handsFree }
+        log("TEST info after \"stop listening\": \(c.listener.gateState) · heard: \(partials.suffix(3))")
+        check(stopped, "\"stop listening\" ended hands-free")
+        await sleep(0.5)
+        check(!c.listener.isEngineRunning || c.listener.alwaysOn, "mic closed afterwards")
+        if !wasRunning { NSWorkspace.shared.runningApplications.first { $0.bundleIdentifier == "com.apple.Notes" }?.terminate() }
     }
 
     func focusedText(_ app: NSRunningApplication) -> String {

@@ -88,16 +88,34 @@ A macro with one step is an alias. Saying the exact phrase runs it instantly; th
 
 ## Acting while you talk
 
-With **Act while I'm still talking** on (the default), you don't have to finish the sentence before things happen. While you hold the key, the transcript updates every ~0.35 s; as soon as a clause is finished — followed by "and", "then", a comma or a full stop — it runs:
+With **Act while I'm still talking** on (the default), you don't have to finish the sentence before things happen. The transcript updates every ~0.15 s; a clause runs as soon as it's finished — followed by "and", "then", a comma, a full stop or a question mark — and the clause you're still saying runs as soon as it's unambiguous:
 
-> "**Open Notes and** create a new note that says call mom at six"
+> "Alright, can you **open up the Notes** app for me and create a new note that says call mom at six"
 >
-> Notes opens as you say "and" · a new note is created · "Call mom at six" is typed in when you let go
+> Notes opens as you say "Notes" · a new note is created · "Call mom at six" is typed in when you pause (hands-free) or let go of the key
 
-- Only exact phrases and confident (≥60%), harmless steps run early. Risky or unclear ones wait until you let go, with the usual confirm and picker.
+- **A pause ends the command.** About 0.7 s of quiet runs whatever is left of the sentence, while you keep holding the key; keep talking for the next command. Letting go does the same. Dictated text waits until you let go, so the held keys can't turn it into shortcuts.
+- If the final transcript words a clause differently or it grew after running ("open Notes" → "open Notes in a new window"), it's decided again and runs only if that gives something new.
+- The clause still being spoken runs early only when it's settled: an exact phrase, or the same confident (≥75%) answer from two transcripts in a row — and only if nothing longer could still follow (not "Safari" while "Safari Technology Preview" is installed, not "dark mode" since "dark mode off" exists). Numbers ("volume 4…"), websites and searches always wait for the end.
+- Finished clauses run early when they're exact phrases or confident (≥60%) and harmless. Risky or unclear ones wait for the pause, with the usual confirm and picker.
+- Talk around the command is ignored: "Alright", "now", "can you", "please", "let's", "once you're there", "for me". Clauses that are only that ("Great, great.", "Thank you") do nothing.
+- When a search starts ("can you Google search…"), the browser comes forward right away; the search runs when the query is finished.
+- Each command is decided knowing the last few you gave (within two minutes), so "once you're there…" and "in it…" make sense.
 - After a step opens or switches apps, the next clause is decided against **that** app's menus and buttons.
 - If another app grabs focus mid-command (a game, a notification), the remaining steps stop and nothing is typed: the overlay says which app took focus.
 - The overlay shows the live transcript with ✓ next to steps already done, and afterwards how long before you let go the first action ran.
+
+## Hands-free
+
+**Tap** the hotkey (press and release without speaking) and the overlay says *Go ahead, I'm listening…*. Talk normally; every pause runs a command, in the order you said them:
+
+> "Can you open up the Notes app?" … "Create a new note." … "Let's make the title say hello." … "Great. Now open X.com." … "Thank you."
+
+- Tap the hotkey again, or say **"stop listening"** / "that's all", to end. It also ends after 90 s without a command.
+- It hears everything said near the Mac, so only what reads like a command (starts with an action word, or is an exact phrase) is decided; acknowledgements ("okay", "great", "thank you") and other talk are ignored, and a command it can't place fails quietly (no error sound).
+- A confirmation can be answered by voice: "yes" / "do it" or "no" / "cancel". The picker takes "one", "two", "three".
+- Needs Parakeet (it's what notices the pauses). Turn the tap off in Settings → General → *Tap the hotkey to listen hands-free*.
+- Websites: "open X.com", "go to github dot com" open in your browser.
 
 ## Dictated text
 

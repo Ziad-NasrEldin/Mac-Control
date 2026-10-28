@@ -14,6 +14,9 @@ Run any test with `./selftest.sh <name>` (names in brackets). Full suite: 86 che
 
 ## Faster and more accurate
 - [x] Act while still talking — live transcription; finished clauses run before you let go; next clause decided against the newly opened app [stream]
+- [x] No need to let go — a pause ends each command; the clause still being spoken runs once it's settled; chatter and polite phrasing ignored [endpoint, live, utterance]
+- [x] Hands-free — tap the hotkey, talk, pause between commands; "stop listening" ends it; recent commands give context
+- [ ] Silero VAD (FluidAudio `VadManager`) instead of the energy gate, for noisy rooms
 - [x] Dictated text inside commands — "…that says …", "type …"; typed only into the intended app [utterance, stream]
 - [x] Exact phrases skip the API — matched locally in microseconds ("open notes", "volume 40", "undo that") [fastpath]
 - [x] Prompt caching — stable action catalog sent as cached `input` (~2,100 tokens cached per call); same speed, cheaper [caching]

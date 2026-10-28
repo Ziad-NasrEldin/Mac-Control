@@ -196,7 +196,8 @@ struct GeneralView: View {
                 Picker("Hold to talk", selection: $prefs.hotkey) {
                     ForEach(Hotkey.allCases) { Text($0.title).tag($0) }
                 }
-                Text("Add ⇧ Shift while holding to type what you say instead of running a command.")
+                Toggle("Tap the hotkey to listen hands-free (tap again or say “stop listening” to end)", isOn: $prefs.handsFreeTap)
+                Text("While talking, a short pause runs what you've said — no need to let go. Add ⇧ Shift while holding to type what you say instead of running a command.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Speech") {

@@ -72,6 +72,53 @@ final class ParakeetEngine {
 
 // MARK: - Speech
 
+/// Tells speech from quiet in 16 kHz audio, against a noise floor that follows the room, and says when a pause
+/// after speech is long enough to end the utterance.
+///
+/// The floor is the quietest moment of the last two seconds: speech always dips between words, steady sound (a fan,
+/// music, a hum) doesn't, so a room that gets louder — even mid-sentence — becomes the new quiet within two seconds.
+struct SpeechGate {
+    private(set) var voicedSamples = 0
+    private(set) var silentRun = 0
+    private(set) var noiseFloor: Float = 0.001
+    /// Loudness smoothed over ~60 ms, so a room's flicker doesn't read as speech or break a pause.
+    private(set) var level: Float = 0
+    /// Recent smoothed levels with their block sizes, covering `window` samples.
+    private var history: [(level: Float, count: Int)] = []
+    private var historySamples = 0
+    static let window = 32_000
+    var speaking: Bool { voicedSamples >= Listener.minVoiced }
+
+    mutating func push(_ s: [Float]) {
+        guard !s.isEmpty else { return }
+        var sum: Float = 0
+        for x in s { sum += x * x }
+        let rms = (sum / Float(s.count)).squareRoot()
+        level = level * 0.7 + rms * 0.3
+        history.append((level, s.count)); historySamples += s.count
+        while historySamples - history[0].count >= SpeechGate.window { historySamples -= history.removeFirst().count }
+        noiseFloor = max(0.0005, history.lazy.map(\.level).min() ?? level)
+        // Starting to talk takes three times the room's own level; carrying on, twice. The absolute minimum only keeps
+        // a dead-silent input from triggering on hiss.
+        let loud = level > max(0.002, noiseFloor * (speaking ? 2 : 3))
+        if loud {
+            voicedSamples += s.count; silentRun = 0
+        } else {
+            silentRun += s.count
+            // A click with nothing after it isn't the start of an utterance.
+            if !speaking && silentRun > 16_000 { voicedSamples = 0 }
+        }
+    }
+
+    /// Speech, then a pause of `seconds` — or, for a very long utterance, any quarter-second breath. `tooLong` closes
+    /// it regardless (a room so loud it never sounds quiet).
+    func ended(after seconds: Double, long: Bool, tooLong: Bool = false) -> Bool {
+        speaking && (tooLong || silentRun >= Int(seconds * 16_000) || (long && silentRun >= 4_000))
+    }
+
+    mutating func reset() { voicedSamples = 0; silentRun = 0 }
+}
+
 final class Listener {
     let parakeet = ParakeetEngine()
     private let converter = AudioConverter()
@@ -105,17 +152,43 @@ final class Listener {
 
     var onPartial: ((String) -> Void)?
     var onLevel: ((Float) -> Void)?
-    /// Live Parakeet transcript of everything said so far, delivered every ~0.35 s while the key is held.
+    /// Live Parakeet transcript of the utterance so far, delivered every ~0.15 s while listening.
     var onStreamText: ((String) -> Void)?
+    /// The final transcript of an utterance that ended on a pause; the mic keeps listening for the next one.
+    var onUtterance: ((String) -> Void)?
     private var streamTimer: Timer?
     private var streamBusy = false
     private var streamedSamples = 0
+
+    // End of speech (Parakeet only): a pause after speech closes the utterance, so nobody has to let go.
+    /// Audio-thread state, under `liveLock`.
+    private var gate = SpeechGate()
+    /// Bumped at each pause, so live passes still running on the previous utterance are dropped.
+    private var segment = 0
+    /// The previous utterance's final transcript is still being made; the next one waits for it, in order.
+    private var awaitingFinal = false
+    private var afterFinal: (() -> Void)?
+    /// Utterances closed by a pause during this listening session.
+    private(set) var utterances = 0
+    /// A pause this long after speech ends an utterance.
+    var endpointSeconds = 0.7
+    /// Less than 0.1 s above the noise is a click or a breath, not speech.
+    static let minVoiced = 1_600
+    /// Past 15 s without a full pause, a quarter-second breath is enough to close the utterance (keeps passes fast);
+    /// at 25 s it's closed anyway.
+    static let maxUtteranceSamples = 16_000 * 15
+    /// Hands-free: drop audio before speech starts. Off while the key is held, so a quiet voice the gate doesn't
+    /// count as speech is still all transcribed on release.
+    var dropsSilence = false
     var hints: [String] = []
     /// Why the last attempt produced no text, for the overlay.
     private(set) var lastProblem: String?
 
     var isEngineRunning: Bool { engine.isRunning }
     var preRollCount: Int { liveLock.lock(); defer { liveLock.unlock() }; return ring.count }
+    /// The room's measured level, for logs and self-tests.
+    var noiseFloor: Float { liveLock.lock(); defer { liveLock.unlock() }; return gate.noiseFloor }
+    var gateState: String { liveLock.lock(); defer { liveLock.unlock() }; return "level \(gate.level) floor \(gate.noiseFloor) speaking \(gate.speaking) quiet \(gate.silentRun / 16) ms" }
 
     func setAlwaysOn(_ on: Bool) {
         alwaysOn = on
@@ -130,8 +203,12 @@ final class Listener {
     func parakeetBecameReady() { if alwaysOn { setAlwaysOn(true) } }
 
     func start() {
+        // Pressed again while the last release was waiting on a final transcript: finish that one first.
+        if let pendingStop = afterFinal { afterFinal = nil; pendingStop() }
         best = ""; captured = []; peak = 0; lastProblem = nil; lastSttMs = nil; micStartMs = nil
         generation += 1
+        utterances = 0; awaitingFinal = false; afterFinal = nil
+        liveLock.lock(); gate = SpeechGate(); liveLock.unlock()
         startedAt = Date()
         usingParakeet = parakeet.ready
         if usingParakeet && alwaysOn && engine.isRunning {
@@ -149,26 +226,58 @@ final class Listener {
         else { startStreaming() }
     }
 
-    /// Re-transcribes the growing recording a few times a second (Parakeet takes ~50 ms for a short clip).
+    /// Re-transcribes the current utterance several times a second (Parakeet takes ~50 ms for a short clip), and
+    /// closes the utterance when the speaker pauses. Only the audio since the last pause is ever re-run.
     private func startStreaming() {
         streamTimer?.invalidate()
         streamBusy = false; streamedSamples = 0
         let gen = generation
-        streamTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: true) { [weak self] _ in
-            guard let self, gen == self.generation, !self.streamBusy, self.onStreamText != nil else { return }
-            self.liveLock.lock(); let audio = self.samples16k; let isActive = self.active; self.liveLock.unlock()
-            // Wait for half a second of audio, then only re-run once there's a quarter second more.
-            guard isActive, audio.count >= 8_000, audio.count - self.streamedSamples >= 4_000 else { return }
+        streamTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+            guard let self, gen == self.generation, !self.awaitingFinal else { return }
+            self.liveLock.lock()
+            let isActive = self.active
+            let ended = self.onUtterance != nil
+                && self.gate.ended(after: self.endpointSeconds, long: self.samples16k.count >= Listener.maxUtteranceSamples,
+                                   tooLong: self.samples16k.count >= Listener.maxUtteranceSamples * 5 / 3)
+            var closed: [Float] = []
+            if ended { closed = self.samples16k; self.samples16k = []; self.gate.reset() }
+            let audio = self.samples16k
+            self.liveLock.unlock()
+            guard isActive else { return }
+            if ended {
+                self.segment += 1; self.streamedSamples = 0; self.utterances += 1
+                self.awaitingFinal = true
+                self.parakeet.transcribe(closed) { [weak self] text, ms in
+                    guard let self else { return }
+                    log("utterance ended on a pause: \"\(text)\" (\(ms) ms)")
+                    // Delivered even if listening restarted meanwhile: it's what was said.
+                    if gen == self.generation { self.awaitingFinal = false; self.lastSttMs = ms }
+                    if !text.isEmpty { self.onUtterance?(text) }
+                    if gen == self.generation, let next = self.afterFinal { self.afterFinal = nil; next() }
+                }
+                return
+            }
+            guard !self.streamBusy, self.onStreamText != nil else { return }
+            // Wait for 0.4 s of audio, then re-run whenever there's 0.15 s more.
+            guard audio.count >= 6_400, audio.count - self.streamedSamples >= 2_400 else { return }
             self.streamBusy = true
             self.streamedSamples = audio.count
+            let seg = self.segment
             self.parakeet.transcribe(audio) { [weak self] text, _ in
                 guard let self else { return }
                 self.streamBusy = false
-                self.liveLock.lock(); let stillHeld = self.active; self.liveLock.unlock()
-                guard gen == self.generation, stillHeld, !text.isEmpty else { return }
+                self.liveLock.lock(); let stillOn = self.active; self.liveLock.unlock()
+                guard gen == self.generation, seg == self.segment, stillOn, !text.isEmpty else { return }
                 self.onStreamText?(text)
             }
         }
+    }
+
+    /// Under `liveLock`.
+    private func trackSpeech(_ s: [Float]) {
+        gate.push(s)
+        // Before anyone speaks, keep only a short lead-in so the buffer doesn't grow during silence.
+        if dropsSilence, !gate.speaking, samples16k.count > preRollSamples { samples16k.removeFirst(samples16k.count - preRollSamples) }
     }
 
     private func openMic(parakeetMode: Bool, activate: Bool) {
@@ -185,7 +294,7 @@ final class Listener {
             self.liveLock.lock()
             let isActive = self.active
             if parakeetMode {
-                if isActive { self.samples16k += s }
+                if isActive { self.samples16k += s; self.trackSpeech(s) }
                 else { self.ring += s; if self.ring.count > self.preRollSamples { self.ring.removeFirst(self.ring.count - self.preRollSamples) } }
             } else {
                 self.liveRequest?.append(buf)
@@ -247,15 +356,12 @@ final class Listener {
     func stop(_ done: @escaping (String) -> Void) {
         streamTimer?.invalidate(); streamTimer = nil
         finished = done
-        liveLock.lock(); active = false; let audio = samples16k; samples16k = []; liveLock.unlock()
+        liveLock.lock(); active = false; let audio = samples16k; samples16k = []; let voiced = gate.voicedSamples; liveLock.unlock()
         if !(alwaysOn && usingParakeet) { stopEngine() }
         if usingParakeet {
-            guard peak >= 0.002 else { deliver(); return }
-            parakeet.transcribe(audio) { [weak self] text, ms in
-                guard let self else { return }
-                self.best = text; self.lastSttMs = ms
-                self.deliver()
-            }
+            // The previous utterance's final transcript goes out first.
+            if awaitingFinal { afterFinal = { [weak self] in self?.finishStop(audio, voiced: voiced) }; return }
+            finishStop(audio, voiced: voiced)
             return
         }
         request?.endAudio()
@@ -267,6 +373,16 @@ final class Listener {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
             guard let self, gen == self.generation else { return }
+            self.deliver()
+        }
+    }
+
+    private func finishStop(_ audio: [Float], voiced: Int) {
+        // Everything was already said and handled at a pause; only quiet is left.
+        guard peak >= 0.002, utterances == 0 || voiced >= Listener.minVoiced else { deliver(); return }
+        parakeet.transcribe(audio) { [weak self] text, ms in
+            guard let self else { return }
+            self.best = text; self.lastSttMs = ms
             self.deliver()
         }
     }

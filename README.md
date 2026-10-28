@@ -16,7 +16,8 @@ A small overlay shows what it heard, what it picked, how confident it was, and h
 
 ## Highlights
 
-- **Acts while you're still talking** — say "open Notes and create a new note that says hello": Notes opens the moment you say "…and", the note is created, and your words are typed in.
+- **Acts while you're still talking** — say "can you open up the Notes app and create a new note that says hello": Notes opens as you say "Notes", the note is created, and your words are typed in. A short pause runs what you've said; you never have to let go.
+- **Hands-free** — tap the hotkey once and just talk: "open Notes" … "create a new note" … "now open X.com". Each pause runs a command; tap again or say "stop listening" to end. "Okay", "great", "thank you" are ignored.
 - **Whole-Mac control** — apps, windows, menus, buttons, browser tabs and links, system settings, media, Shortcuts.
 - **Fast** — on-device speech in ~50 ms; exact phrases ("open notes", "volume 40") skip the network entirely and run in microseconds; everything else is decided in ~0.3–0.8 s.
 - **Private by default** — your voice never leaves the Mac. Only the transcript and a list of possible actions are sent to the decision model.
@@ -61,7 +62,8 @@ On first launch the **Setup** window walks you through:
 
 | Do this | To |
 |---|---|
-| Hold **⌘ + Right ⌥**, speak, release | Run a command |
+| Hold **⌘ + Right ⌥**, speak (pause or release) | Run a command — each pause runs what you've said so far |
+| Tap **⌘ + Right ⌥** | Listen hands-free until you tap again or say "stop listening" |
 | Hold **⇧ + ⌘ + Right ⌥**, speak, release | Type what you said into the focused field |
 | Say **"undo that"** | Reverse the last command |
 | Press **1–3** (or say "two") | Pick from the top 3 when a command was unclear |
@@ -100,8 +102,8 @@ flowchart LR
     Q --> A
 ```
 
-1. **While you hold the key** the mic records and Parakeet transcribes live every ~0.35 s; each finished clause ("open Notes **and**…") is decided and run right away while you keep talking. Meanwhile a TLS connection to OpenAI is warmed up, and the front app's menus, window controls, browser tabs and page links are read in the background.
-2. **When you let go** Parakeet transcribes the audio locally (~50 ms).
+1. **While you talk** the mic records and Parakeet transcribes live every ~0.15 s; each finished clause ("open Notes **and**…") is decided and run right away, and so is the clause you're still saying once it's unambiguous ("open up the Notes…"). Meanwhile a TLS connection to OpenAI is warmed up, and the front app's menus, window controls, browser tabs and page links are read in the background.
+2. **When you pause** (~0.7 s) or let go, Parakeet transcribes that utterance locally (~50 ms) and the rest of it runs.
 3. **Exact phrases** are matched locally and run immediately — no API call.
 4. **Everything else** goes to the decision model as one multiple-choice question: *which of these ~250 actions did the user mean?* The model returns a choice and a confidence.
 5. **The action runs** through macOS APIs: NSWorkspace, the Accessibility API, Apple Events, synthesized key and media-key events.

@@ -78,10 +78,11 @@ func switchTab(app: NSRunningApplication, kind: BrowserKind, window w: Int, tab 
 
 /// Pulls the search query out of e.g. "open Safari and search for cheap flights to Cairo".
 func searchQuery(from heard: String) -> String {
-    let pattern = #"(?i)^.*?\b(?:search(?:\s+(?:the\s+web|google|online))?(?:\s+for)?|google|look\s+up)\b\s*"#
+    let pattern = #"(?i)^.*?\b(?:search(?:\s+(?:the\s+web|google|online))?(?:\s+for)?|google(?:\s+search)?(?:\s+for)?|look\s+up)\b\s*"#
     var q = heard.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
     if q == heard { q = heard }
     // Drop anything chained after the query ("… and then open a new tab").
     if let r = q.range(of: #"(?i)\s*,?\s+(?:and\s+)?then\b.*$"#, options: .regularExpression) { q.removeSubrange(r) }
+    q = q.replacingOccurrences(of: #"(?i)[\s,]*(?:for me|please)?[\s?.!,]*$"#, with: "", options: .regularExpression)
     return q.trimmingCharacters(in: CharacterSet(charactersIn: " .?!,"))
 }
